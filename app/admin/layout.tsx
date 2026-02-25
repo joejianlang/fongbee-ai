@@ -15,9 +15,16 @@ import {
   Layers,
   Menu,
   X,
+  LucideIcon,
 } from 'lucide-react';
 
-const menuItems = [
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const menuItems: MenuItem[] = [
   { href: '/admin', label: '控制台', icon: LayoutDashboard },
   { href: '/admin/service-categories', label: '服务分类管理', icon: Layers },
   { href: '/admin/orders', label: '订单管理', icon: Package },
