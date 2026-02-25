@@ -67,7 +67,7 @@ export default function AdminLayout({
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-[#0d9488] text-white'
-                    : 'text-white hover:bg-white/10'
+                    : 'text-white/85 hover:text-white hover:bg-white/15'
                 }`}
               >
                 <Icon size={20} />
