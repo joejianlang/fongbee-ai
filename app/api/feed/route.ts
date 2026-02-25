@@ -37,7 +37,7 @@ export async function GET(
       select: { tag: true, weight: true },
     });
 
-    const interestTags = userInterests.map((i) => i.tag);
+    const interestTags = userInterests.map((i: { tag: string }) => i.tag);
 
     // Build query
     const where: any = {
@@ -86,9 +86,9 @@ export async function GET(
     ]);
 
     // Enrich with user interaction data
-    const enrichedArticles = articles.map((article) => ({
+    const enrichedArticles = articles.map((article: typeof articles[number]) => ({
       ...article,
-      tags: article.tags.map((t) => t.tag),
+      tags: article.tags.map((t: { tag: string }) => t.tag),
       userInteraction: article.userInteractions[0],
     }));
 

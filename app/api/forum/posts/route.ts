@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { ApiResponse, PaginatedResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { encodeGeohash, buildGeohashQuery, haversineDistance } from '@/lib/geo/geohash';
 
 const getPostsSchema = z.object({
   city: z.string().optional(),
@@ -45,13 +46,18 @@ export async function GET(
       isApproved: true,
     };
 
-    if (params.city) {
+    // Geohash LBS 查询
+    if (params.latitude && params.longitude) {
+      const geohashes = buildGeohashQuery(params.latitude, params.longitude, params.radius * 1000);
+      // 通过 PostGeoTag 关联过滤
       where.geoTag = {
-        contains: params.city,
+        geohash: { in: geohashes },
+      };
+    } else if (params.city) {
+      where.geoTag = {
+        city: { contains: params.city, mode: 'insensitive' },
       };
     }
-
-    // TODO: Implement geospatial query for lat/long within radius
 
     const [posts, total] = await Promise.all([
       prisma.post.findMany({
@@ -65,6 +71,7 @@ export async function GET(
               avatar: true,
             },
           },
+          geoTag: true,
           comments: {
             take: 3,
             orderBy: { createdAt: 'desc' },
@@ -82,10 +89,24 @@ export async function GET(
       prisma.post.count({ where }),
     ]);
 
+    // Haversine 精确过滤（去除 Geohash 矩形边角的误差）
+    const filteredPosts = (params.latitude && params.longitude)
+      ? posts.filter((p) => {
+          if (!p.geoTag) return false;
+          const dist = haversineDistance(
+            params.latitude!,
+            params.longitude!,
+            p.geoTag.latitude,
+            p.geoTag.longitude
+          );
+          return dist <= params.radius * 1000;
+        })
+      : posts;
+
     return NextResponse.json({
       success: true,
       data: {
-        items: posts,
+        items: filteredPosts,
         total,
         page: params.page,
         limit: params.limit,
@@ -121,15 +142,26 @@ export async function POST(
       data: {
         title: validated.title,
         content: validated.content,
-        geoTag: validated.geoTag,
-        latitude: validated.latitude,
-        longitude: validated.longitude,
         authorId: userId,
+        // PostGeoTag 关联（嵌套创建）
+        ...(validated.latitude && validated.longitude
+          ? {
+              geoTag: {
+                create: {
+                  latitude: validated.latitude,
+                  longitude: validated.longitude,
+                  geohash: encodeGeohash(validated.latitude, validated.longitude),
+                  city: validated.geoTag, // "Guelph, ON" → city 字段
+                },
+              },
+            }
+          : {}),
       },
       include: {
         author: {
           select: { id: true, firstName: true, avatar: true },
         },
+        geoTag: true,
       },
     });
 

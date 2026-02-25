@@ -9,7 +9,7 @@ const paymentPolicySchema = z.object({
   autoCaptureHoursBefore: z.coerce.number().int().positive(),
   isAutoCaptureEnabled: z.boolean().default(true),
   cancellationCutoffHours: z.coerce.number().int().positive(),
-  forfeitturePercentage: z.coerce.number().int().min(0).max(100),
+  forfeiturePercentage: z.coerce.number().int().min(0).max(100),
   depositPercentage: z.coerce.number().int().min(0).max(100).optional(),
   refundDays: z.coerce.number().int().positive().default(7),
 });
@@ -61,12 +61,10 @@ export async function POST(
     const validated = paymentPolicySchema.parse(body);
 
     // Check if policy already exists
-    const existingPolicy = await prisma.paymentPolicy.findUnique({
+    const existingPolicy = await prisma.paymentPolicy.findFirst({
       where: {
-        serviceType_serviceCategoryId: {
-          serviceType: validated.serviceType,
-          serviceCategoryId: validated.serviceCategoryId || null,
-        },
+        serviceType: validated.serviceType,
+        serviceCategoryId: validated.serviceCategoryId ?? null,
       },
     });
 
@@ -80,7 +78,7 @@ export async function POST(
           autoCaptureHoursBefore: validated.autoCaptureHoursBefore,
           isAutoCaptureEnabled: validated.isAutoCaptureEnabled,
           cancellationCutoffHours: validated.cancellationCutoffHours,
-          forfeitturePercentage: validated.forfeitturePercentage,
+          forfeiturePercentage: validated.forfeiturePercentage,
           depositPercentage: validated.depositPercentage,
           refundDays: validated.refundDays,
         },
@@ -105,7 +103,7 @@ export async function POST(
           autoCaptureHoursBefore: validated.autoCaptureHoursBefore,
           isAutoCaptureEnabled: validated.isAutoCaptureEnabled,
           cancellationCutoffHours: validated.cancellationCutoffHours,
-          forfeitturePercentage: validated.forfeitturePercentage,
+          forfeiturePercentage: validated.forfeiturePercentage,
           depositPercentage: validated.depositPercentage,
           refundDays: validated.refundDays,
           createdBy: adminId,

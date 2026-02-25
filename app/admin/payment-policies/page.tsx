@@ -12,7 +12,7 @@ interface PaymentPolicy {
   autoCaptureHoursBefore: number;
   isAutoCaptureEnabled: boolean;
   cancellationCutoffHours: number;
-  forfeitturePercentage: number;
+  forfeiturePercentage: number;
   depositPercentage?: number;
   refundDays: number;
 }
@@ -27,7 +27,7 @@ export default function PaymentPoliciesPage() {
     autoCaptureHoursBefore: 48,
     isAutoCaptureEnabled: true,
     cancellationCutoffHours: 48,
-    forfeitturePercentage: 20,
+    forfeiturePercentage: 20,
     depositPercentage: 30,
     refundDays: 7,
   });
@@ -76,7 +76,7 @@ export default function PaymentPoliciesPage() {
           autoCaptureHoursBefore: 48,
           isAutoCaptureEnabled: true,
           cancellationCutoffHours: 48,
-          forfeitturePercentage: 20,
+          forfeiturePercentage: 20,
           depositPercentage: 30,
           refundDays: 7,
         });
@@ -92,8 +92,8 @@ export default function PaymentPoliciesPage() {
       autoCaptureHoursBefore: policy.autoCaptureHoursBefore,
       isAutoCaptureEnabled: policy.isAutoCaptureEnabled,
       cancellationCutoffHours: policy.cancellationCutoffHours,
-      forfeitturePercentage: policy.forfeitturePercentage,
-      depositPercentage: policy.depositPercentage,
+      forfeiturePercentage: policy.forfeiturePercentage,
+      depositPercentage: policy.depositPercentage ?? 30,
       refundDays: policy.refundDays,
     });
     setEditingId(policy.id);
@@ -164,7 +164,7 @@ export default function PaymentPoliciesPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">违约金比例</span>
-                  <span className="font-medium">{policy.forfeitturePercentage}%</span>
+                  <span className="font-medium">{policy.forfeiturePercentage}%</span>
                 </div>
                 {policy.depositPercentage && (
                   <div className="flex justify-between">
@@ -235,11 +235,11 @@ export default function PaymentPoliciesPage() {
               <Input
                 label="违约金比例 (%)"
                 type="number"
-                value={formData.forfeitturePercentage}
+                value={formData.forfeiturePercentage}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    forfeitturePercentage: parseInt(e.target.value),
+                    forfeiturePercentage: parseInt(e.target.value),
                   })
                 }
               />

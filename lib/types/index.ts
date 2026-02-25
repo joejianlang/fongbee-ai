@@ -173,7 +173,7 @@ export interface PaymentPolicyDetail {
   autoCaptureHoursBefore: number;
   isAutoCaptureEnabled: boolean;
   cancellationCutoffHours: number;
-  forfeitturePercentage: number;
+  forfeiturePercentage: number;
   depositPercentage?: number;
   refundDays: number;
 }

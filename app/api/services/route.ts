@@ -148,7 +148,7 @@ export async function POST(
         description: validated.description,
         basePrice: validated.basePrice.toString(),
         priceUnit: validated.priceUnit,
-        images: validated.images || [],
+        // images field removed from schema v2 (use Supabase Storage)
         minBookingHours: validated.minBookingHours,
         maxBookingHours: validated.maxBookingHours,
       },

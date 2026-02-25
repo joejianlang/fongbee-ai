@@ -56,51 +56,23 @@ async function main() {
 
   console.log(`✅ Created admin user: ${adminUser.email}`);
 
-  // 3. Create payment policies
-  const policies = await Promise.all([
-    prisma.paymentPolicy.upsert({
-      where: { serviceType_serviceCategoryId: { serviceType: 'standard', serviceCategoryId: null } },
-      update: {},
-      create: {
-        serviceType: 'standard',
-        autoCaptureHoursBefore: 48,
-        isAutoCaptureEnabled: true,
-        cancellationCutoffHours: 48,
-        forfeitturePercentage: 20,
-        depositPercentage: 30,
-        refundDays: 7,
-        createdBy: adminUser.id,
-      },
-    }),
-    prisma.paymentPolicy.upsert({
-      where: { serviceType_serviceCategoryId: { serviceType: 'simple_custom', serviceCategoryId: null } },
-      update: {},
-      create: {
-        serviceType: 'simple_custom',
-        autoCaptureHoursBefore: 36,
-        isAutoCaptureEnabled: true,
-        cancellationCutoffHours: 36,
-        forfeitturePercentage: 15,
-        depositPercentage: 20,
-        refundDays: 7,
-        createdBy: adminUser.id,
-      },
-    }),
-    prisma.paymentPolicy.upsert({
-      where: { serviceType_serviceCategoryId: { serviceType: 'complex_custom', serviceCategoryId: null } },
-      update: {},
-      create: {
-        serviceType: 'complex_custom',
-        autoCaptureHoursBefore: 72,
-        isAutoCaptureEnabled: false, // Manual handling for complex projects
-        cancellationCutoffHours: 72,
-        forfeitturePercentage: 25,
-        depositPercentage: 50,
-        refundDays: 14,
-        createdBy: adminUser.id,
-      },
-    }),
-  ]);
+  // 3. Create payment policies (用 findFirst+create 替代 upsert，因为 null serviceCategoryId 在 @@unique 中行为特殊)
+  const policyDefs = [
+    { serviceType: 'standard',      autoCaptureHoursBefore: 48, isAutoCaptureEnabled: true,  cancellationCutoffHours: 48, forfeiturePercentage: 20, depositPercentage: 30, refundDays: 7 },
+    { serviceType: 'simple_custom', autoCaptureHoursBefore: 36, isAutoCaptureEnabled: true,  cancellationCutoffHours: 36, forfeiturePercentage: 15, depositPercentage: 20, refundDays: 7 },
+    { serviceType: 'complex_custom',autoCaptureHoursBefore: 72, isAutoCaptureEnabled: false, cancellationCutoffHours: 72, forfeiturePercentage: 25, depositPercentage: 50, refundDays: 14 },
+  ];
+  const policies = await Promise.all(
+    policyDefs.map(async (def) => {
+      const existing = await prisma.paymentPolicy.findFirst({
+        where: { serviceType: def.serviceType, serviceCategoryId: null },
+      });
+      if (existing) return existing;
+      return prisma.paymentPolicy.create({
+        data: { ...def, serviceCategoryId: null, createdBy: adminUser.id },
+      });
+    })
+  );
 
   console.log(`✅ Created ${policies.length} payment policies`);
 
