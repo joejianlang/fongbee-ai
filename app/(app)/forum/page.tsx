@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { MapPin, ThumbsUp, MessageCircle, Plus, ChevronDown } from 'lucide-react';
 
 interface ForumPost {
@@ -113,9 +114,10 @@ export default function ForumPage() {
       {/* 帖子列表 */}
       <div className="mt-2 space-y-2.5 px-3 md:px-0">
         {filtered.map((post) => (
-          <article
+          <Link
             key={post.id}
-            className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+            href={`/forum/${post.id}`}
+            className="block bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
           >
             {/* 顶部：头像 + 作者 + 位置 + 分类 */}
             <div className="flex items-center gap-2 mb-2.5">
@@ -163,7 +165,7 @@ export default function ForumPage() {
                 <ChevronDown size={13} />
               </button>
             </div>
-          </article>
+          </Link>
         ))}
       </div>
 
