@@ -1,124 +1,98 @@
-import { Heart, Share2, MessageCircle } from 'lucide-react';
-import Link from 'next/link';
+'use client';
+
+import { useState } from 'react';
+import Image from 'next/image';
+import { ChevronDown, ChevronUp, Play } from 'lucide-react';
+import type { MockArticle } from '@/lib/mockData';
 
 interface ArticleCardProps {
-  id: string;
-  title: string;
-  summary?: string;
-  author?: string;
-  publishedAt: string;
-  sourceType: string;
-  imageUrl?: string;
-  tags: string[];
-  viewCount: number;
-  likeCount: number;
-  shareCount: number;
-  userInteraction?: {
-    isLiked: boolean;
-    isBookmarked: boolean;
-    isShared: boolean;
-  };
+  article: MockArticle;
 }
 
-export function ArticleCard({
-  id,
-  title,
-  summary,
-  author,
-  publishedAt,
-  sourceType,
-  imageUrl,
-  tags,
-  viewCount,
-  likeCount,
-  shareCount,
-  userInteraction,
-}: ArticleCardProps) {
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+  return `${Math.floor(diff / 86400)}天前`;
+}
 
-    if (hours < 1) return '刚刚';
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
-    return d.toLocaleDateString('zh-CN');
-  };
+export function ArticleCard({ article }: ArticleCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const isYoutube = article.sourceType === 'YOUTUBE';
 
   return (
-    <Link href={`/app/articles/${id}`}>
-      <div className="bg-card border border-card-border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-        {/* Image */}
-        {imageUrl && (
-          <div className="w-full h-32 rounded-lg bg-gray-200 mb-3 overflow-hidden">
-            <img
-              src={imageUrl}
-              alt={title}
-              className="w-full h-full object-cover"
-            />
+    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-2.5 md:mb-0 shadow-sm md:shadow-none overflow-hidden">
+      <div className="flex gap-3 p-3 md:py-4 md:px-0">
+
+        {/* ── 缩略图 ── */}
+        <div className="flex-shrink-0 relative">
+          <div className="w-24 h-24 md:w-[110px] md:h-[80px] rounded-lg md:rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700">
+            {article.imageUrl ? (
+              <Image
+                src={article.imageUrl}
+                alt={`${article.sourceName} - ${article.title}`}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 96px, 110px"
+                unoptimized
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-gray-400 text-xs">无图片</span>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Title */}
-        <h3 className="text-lg font-bold text-text-primary mb-2 line-clamp-2">
-          {title}
-        </h3>
-
-        {/* Summary */}
-        {summary && (
-          <p className="text-sm text-text-secondary mb-3 line-clamp-2">
-            {summary}
-          </p>
-        )}
-
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className="flex gap-2 mb-3 flex-wrap">
-            {tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-1 text-xs rounded-full bg-text-accent/10 text-text-accent"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Meta */}
-        <div className="flex items-center justify-between text-xs text-text-muted mb-3">
-          <div className="flex gap-2">
-            {author && <span>{author}</span>}
-            {sourceType && <span>•</span>}
-            <span>{sourceType === 'youtube' ? 'YouTube' : 'RSS'}</span>
-            <span>•</span>
-            <span>{formatDate(publishedAt)}</span>
-          </div>
+          {/* YouTube 角标 */}
+          {isYoutube && (
+            <div className="absolute bottom-1 left-1 bg-red-600 rounded-sm px-1 py-0.5 flex items-center gap-0.5">
+              <Play size={8} fill="white" className="text-white" />
+              <span className="text-white text-[9px] font-bold leading-none">YT</span>
+            </div>
+          )}
         </div>
 
-        {/* Engagement */}
-        <div className="flex items-center justify-between pt-3 border-t border-card-border">
-          <div className="flex gap-4 text-xs text-text-muted">
-            <div className="flex items-center gap-1">
-              <Heart
-                size={16}
-                className={userInteraction?.isLiked ? 'fill-red-500 text-red-500' : ''}
-              />
-              {likeCount}
-            </div>
-            <div className="flex items-center gap-1">
-              <MessageCircle size={16} />
-              {viewCount}
-            </div>
-            <div className="flex items-center gap-1">
-              <Share2 size={16} />
-              {shareCount}
-            </div>
+        {/* ── 内容区 ── */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          {/* meta 行：来源 · 分类 · 时间 */}
+          <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1">
+            <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold max-w-[110px] truncate">
+              {article.sourceName}
+            </span>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted">{article.category}</span>
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted flex-shrink-0">{timeAgo(article.publishedAt)}</span>
           </div>
+
+          {/* 标题 */}
+          <h2 className="text-text-primary dark:text-white text-sm font-semibold leading-snug line-clamp-2 mb-2">
+            {article.title}
+          </h2>
+
+          {/* 详情按钮 */}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity self-start"
+            aria-expanded={expanded}
+            aria-label={expanded ? '收起详情' : '查看详情'}
+          >
+            详情
+            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
         </div>
       </div>
-    </Link>
+
+      {/* ── 展开内容 ── */}
+      {expanded && article.summary && (
+        <div className="px-3 pb-3 md:px-0 border-t border-border-primary">
+          <p className="text-text-secondary dark:text-gray-300 text-sm leading-relaxed pt-2.5">
+            {article.summary}
+          </p>
+        </div>
+      )}
+    </article>
   );
 }
+
+export default ArticleCard;

@@ -4,7 +4,7 @@
 
 /* ─── CSS Variables — Light Mode ─────────────────── */
 :root {
-  --background: #f8fafc;
+  --background: #f3f4f6;
   --foreground: #171717;
   --card-bg: #ffffff;
   --card-border: #f1f5f9;
@@ -12,9 +12,10 @@
   --nav-text: #ffffff;
   --text-primary: #111827;
   --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
+  --text-muted: #6b7280;
   --text-accent: #0d9488;
   --border-primary: #e5e7eb;
+  --tab-active: #7c3aed;
 }
 
 /* ─── CSS Variables — Dark Mode ────────────────────── */
@@ -28,8 +29,9 @@
   --text-primary: #ffffff;
   --text-secondary: #cbd5e1;
   --text-muted: #888888;
-  --text-accent: #3b82f6;
+  --text-accent: #2dd4bf;
   --border-primary: #333333;
+  --tab-active: #7c3aed;
 }
 
 /* ─── Base ──────────────────────────────────────────── */

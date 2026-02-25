@@ -1,6 +1,5 @@
-import type { Config } from 'tailwindcss'
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+const config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -27,10 +26,12 @@ const config: Config = {
         border: {
           primary: 'var(--border-primary)',
         },
+        'tab-active': 'var(--tab-active)',
       },
     },
   },
   plugins: [],
   darkMode: 'class',
-}
-export default config
+};
+
+export default config;

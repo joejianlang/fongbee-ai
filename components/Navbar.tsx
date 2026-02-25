@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { Newspaper, MessageSquare, Store, User } from 'lucide-react';
 
 const navItems = [
-  { href: '/app', label: '新闻', icon: Newspaper },
-  { href: '/app/forum', label: '论坛', icon: MessageSquare },
-  { href: '/app/services', label: '服务', icon: Store },
-  { href: '/app/profile', label: '我的', icon: User },
+  { href: '/',         label: '新闻', icon: Newspaper },
+  { href: '/forum',    label: '论坛', icon: MessageSquare },
+  { href: '/services', label: '服务', icon: Store },
+  { href: '/profile',  label: '我的', icon: User },
 ];
 
 export default function Navbar() {
@@ -24,7 +24,9 @@ export default function Navbar() {
       <div className="flex justify-center gap-8 items-center h-16 max-w-lg mx-auto">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
+            item.href === '/'
+              ? pathname === '/'
+              : pathname?.startsWith(item.href);
           const Icon = item.icon;
 
           return (
