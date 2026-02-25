@@ -2,6 +2,8 @@ import { prisma } from '@/lib/db';
 import { ApiResponse, PaginatedResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../auth/[...nextauth]/auth-options';
 import { encodeGeohash, buildGeohashQuery, haversineDistance } from '@/lib/geo/geohash';
 
 const getPostsSchema = z.object({
@@ -131,12 +133,16 @@ export async function GET(
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<ApiResponse>> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const validated = createPostSchema.parse(body);
 
-    // TODO: Get user ID from session
-    const userId = 'user-id';
+    const userId = session.user.id;
 
     const post = await prisma.post.create({
       data: {
