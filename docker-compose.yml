@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: youfujia-postgres
+    environment:
+      POSTGRES_DB: youfujia
+      POSTGRES_USER: youfujia_user
+      POSTGRES_PASSWORD: youfujia_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U youfujia_user -d youfujia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - youfujia_network
+
+  # Next.js 应用（可选，如果使用 Docker 运行）
+  app:
+    build: .
+    container_name: youfujia-app
+    environment:
+      DATABASE_URL: "postgresql://youfujia_user:youfujia_password@postgres:5432/youfujia"
+      NEXTAUTH_SECRET: "test-secret-key-min-32-characters-for-local-testing-only"
+      NEXTAUTH_URL: "http://localhost:3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - youfujia_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  youfujia_network:
+    driver: bridge
