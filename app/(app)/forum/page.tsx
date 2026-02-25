@@ -170,12 +170,13 @@ export default function ForumPage() {
       </div>
 
       {/* 发帖悬浮按钮 */}
-      <button
+      <Link
+        href="/forum/new"
         className="fixed bottom-24 md:bottom-8 right-5 w-14 h-14 bg-[#0d9488] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#0a7c71] transition-colors z-30"
         aria-label="发布帖子"
       >
         <Plus size={24} />
-      </button>
+      </Link>
     </div>
   );
 }

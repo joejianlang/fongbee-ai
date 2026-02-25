@@ -53,8 +53,22 @@ export default function ServicesPage() {
         </div>
       </div>
 
+      {/* 找不到合适服务横幅 */}
+      <div className="mx-3 md:mx-0 mt-3 bg-gradient-to-r from-[#0d9488] to-[#0a7c71] rounded-xl px-4 py-3.5 flex items-center justify-between shadow-sm">
+        <div>
+          <p className="text-white font-semibold text-sm">找不到合适的服务？</p>
+          <p className="text-white/70 text-xs mt-0.5">发布定制需求，让服务商主动联系您</p>
+        </div>
+        <Link
+          href="/services/custom"
+          className="flex-shrink-0 bg-white text-[#0d9488] text-xs font-bold px-4 py-2 rounded-full hover:bg-white/90 transition-colors"
+        >
+          发布需求
+        </Link>
+      </div>
+
       {/* 服务卡片 */}
-      <div className="mt-2 px-3 md:px-0 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="mt-3 px-3 md:px-0 grid grid-cols-1 md:grid-cols-2 gap-3">
         {filtered.length === 0 ? (
           <div className="col-span-2 text-center py-16 text-text-muted">
             <p>暂无相关服务</p>
