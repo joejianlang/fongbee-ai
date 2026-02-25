@@ -4,60 +4,79 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // ⚠️  生产环境：Supabase Canada Region (ca-central-1)，数据主权要求
   url      = env("DATABASE_URL")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1. User & Auth Models
+// 1. User & Auth
+// PII 标注: @pii:IDENTITY | @pii:CONTACT | @pii:CREDENTIAL | @pii:FINANCIAL | @pii:SENSITIVE
 // ═══════════════════════════════════════════════════════════════════════════
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  phone                 String?   @unique
-  password              String?
-  firstName             String?
-  lastName              String?
-  avatar                String?
-  bio                   String?
-  role                  UserRole  @default(CUSTOMER)
-  status                UserStatus @default(ACTIVE)
+  id        String     @id @default(cuid())
+  email     String     @unique // @pii:CONTACT
+  phone     String?    @unique // @pii:CONTACT
+  password  String?            // @pii:CREDENTIAL (bcrypt hashed, cost=10)
+  firstName String?            // @pii:IDENTITY
+  lastName  String?            // @pii:IDENTITY
+  avatar    String?            // @pii:IDENTITY
+  bio       String?
+  role      UserRole   @default(CUSTOMER)
+  status    UserStatus @default(ACTIVE)
 
-  // Geolocation
-  latitude              Float?
-  longitude             Float?
-  city                  String?
-  country               String?   @default("Canada")
-  addressLine1          String?
-  addressLine2          String?
-  zipCode               String?
+  // Geolocation (非精确，城市级别)
+  latitude  Float?
+  longitude Float?
+  city      String?
+  country   String?   @default("Canada")
+  province  String?   // Ontario, BC, etc.
+  postalCode String?  // @pii:CONTACT
 
   // Profile
-  isProfileComplete     Boolean   @default(false)
-  profileCompletedAt    DateTime?
+  isProfileComplete  Boolean   @default(false)
+  profileCompletedAt DateTime?
+
+  // MFA / Passkeys
+  mfaEnabled Boolean @default(false)
+  mfaSecret  String? // @pii:CREDENTIAL (TOTP secret, AES-256 encrypted at app layer)
+
+  // CPPA 被遗忘权
+  deletionRequestedAt DateTime?
+  deletionCompletedAt DateTime?
+  isAnonymized        Boolean   @default(false)
 
   // Timestamps
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  lastLoginAt           DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
 
   // Relations
-  serviceProvider       ServiceProvider?
-  orders                Order[]
-  posts                 Post[]
-  comments              Comment[]
-  userInterests         UserInterest[]
-  notifications         Notification[]
-  reviews               Review[]
-  bids                  Bid[]
-  customRequests        CustomRequest[]
-  projects              Project[]
-  adminLogs             AdminLog[]
-  userInteractions      UserArticleInteraction[]
+  passkeys             Passkey[]
+  authTokens           AuthToken[]
+  serviceProvider      ServiceProvider?
+  orders               Order[]
+  posts                Post[]
+  comments             Comment[]
+  userInterests        UserInterest[]
+  notifications        Notification[]
+  reviews              Review[]
+  customRequests       CustomRequest[]
+  projects             Project[]
+  adminLogs            AdminLog[]
+  userInteractions     UserArticleInteraction[]
+  contractVersions     ContractVersion[]
+  contractSignatures   ContractSignature[]
+  padAuthorizations    PADAuthorization[]
+  dataDeletionRequests DataDeletionRequest[]
+  aiDecisionLogs       AIDecisionLog[]
+  aiUsageQuotas        AIUsageQuota[]
+  smsLogs              SMSLog[]
 
   @@index([email])
   @@index([phone])
   @@index([city])
+  @@index([isAnonymized])
   @@map("users")
 }
 
@@ -74,15 +93,33 @@ enum UserStatus {
   DELETED
 }
 
+// Passkeys (WebAuthn / FIDO2) — SimpleWebAuthn 实现，数据不出境
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique // @pii:CREDENTIAL
+  publicKey    String             // @pii:CREDENTIAL (COSE key, base64url)
+  counter      BigInt    @default(0)
+  deviceType   String?   // "platform" | "cross-platform"
+  aaguid       String?   // 设备类型标识符
+  transports   String?   // JSON array: ["internal","hybrid"]
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+  @@map("passkeys")
+}
+
 model AuthToken {
-  id                String    @id @default(cuid())
-  userId            String
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token             String    @unique
-  type              TokenType
-  expiresAt         DateTime
-  usedAt            DateTime?
-  createdAt         DateTime  @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  type      TokenType
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([token])
@@ -101,51 +138,44 @@ enum TokenType {
 // ═══════════════════════════════════════════════════════════════════════════
 
 model ServiceProvider {
-  id                    String    @id @default(cuid())
-  userId                String    @unique
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName  String
+  businessLicense    String?
+  licenseExpiryDate  DateTime?
+  businessPhone      String?  // @pii:CONTACT
+  businessEmail      String?  // @pii:CONTACT
+  businessWebsite    String?
+  isVerified         Boolean  @default(false)
+  verificationDate   DateTime?
+  averageRating      Float    @default(5.0)
+  totalReviews       Int      @default(0)
 
-  // Business Info
-  businessName          String
-  businessLicense       String?
-  licenseExpiryDate     DateTime?
-  businessPhone         String?
-  businessEmail         String?
-  businessWebsite       String?
+  // Stripe Connect (加拿大 Express Account)
+  stripeAccountId    String?  @unique
+  stripeOnboardingUrl String?
+  stripeVerified     Boolean  @default(false)
+  availableBalance   Decimal  @default(0) @db.Decimal(10, 2) // CAD
 
-  // Service Categories
-  serviceCategories     ServiceProviderCategory[]
+  // Bank (加密存储，仅末4位明文)
+  bankLast4          String?  // @pii:FINANCIAL
+  bankInstitutionNo  String?  // @pii:FINANCIAL (加拿大金融机构编号)
+  bankTransitNo      String?  // @pii:FINANCIAL
+  bankVerifiedAt     DateTime?
 
-  // Verification
-  isVerified            Boolean   @default(false)
-  verificationDate      DateTime?
-  verificationNotes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Rating
-  averageRating         Float     @default(5.0)
-  totalReviews          Int       @default(0)
-
-  // Bank Account
-  bankAccountOwner      String?
-  bankAccountNumber     String?   // Encrypted
-  bankRoutingNumber     String?   // Encrypted
-  bankVerifiedAt        DateTime?
-
-  // Stripe
-  stripeAccountId       String?   @unique
-  stripeOnboardingUrl   String?
-  stripeVerified        Boolean   @default(false)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  services              Service[]
-  orders                Order[]
-  reviews               Review[]
-  bids                  Bid[]
-  projects              Project[]
-  milestones            Milestone[]
+  services           Service[]
+  orders             Order[]
+  reviews            Review[]
+  bids               Bid[]
+  projects           Project[]
+  milestones         Milestone[]
+  padAuthorizations  PADAuthorization[]
+  payouts            Payout[]
+  serviceCategories  ServiceProviderCategory[]
 
   @@index([userId])
   @@index([isVerified])
@@ -153,108 +183,85 @@ model ServiceProvider {
 }
 
 model ServiceProviderCategory {
-  id                    String    @id @default(cuid())
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-  categoryId            String
-  category              ServiceCategory @relation(fields: [categoryId], references: [id])
-  createdAt             DateTime  @default(now())
+  id                String          @id @default(cuid())
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  categoryId        String
+  category          ServiceCategory @relation(fields: [categoryId], references: [id])
+  createdAt         DateTime        @default(now())
 
   @@unique([serviceProviderId, categoryId])
   @@map("service_provider_categories")
 }
 
 model Review {
-  id                    String    @id @default(cuid())
-  orderId               String    @unique
-  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  orderId           String          @unique
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromUserId        String
+  fromUser          User            @relation(fields: [fromUserId], references: [id])
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  rating            Int             // 1-5
+  comment           String?
+  createdAt         DateTime        @default(now())
 
-  fromUserId            String
-  fromUser              User      @relation(fields: [fromUserId], references: [id])
-
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-
-  rating                Int       // 1-5
-  comment               String?
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  @@unique([orderId])
   @@index([serviceProviderId])
   @@index([fromUserId])
   @@map("reviews")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 3. Service & Category Models
+// 3. Service & Category
 // ═══════════════════════════════════════════════════════════════════════════
 
 model ServiceCategory {
-  id                    String    @id @default(cuid())
-  name                  String    @unique
-  nameEn                String?
-  description           String?
-  icon                  String?
-  color                 String?
-  displayOrder          Int       @default(0)
-  isActive              Boolean   @default(true)
+  id           String   @id @default(cuid())
+  name         String   @unique
+  nameEn       String?
+  description  String?
+  icon         String?
+  color        String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  services              Service[]
-  serviceProviders      ServiceProviderCategory[]
+  services               Service[]
+  serviceProviders       ServiceProviderCategory[]
   customServiceTemplates CustomServiceTemplate[]
-  paymentPolicies       PaymentPolicy[]
+  paymentPolicies        PaymentPolicy[]
 
   @@index([isActive])
   @@map("service_categories")
 }
 
 model Service {
-  id                    String    @id @default(cuid())
-  categoryId            String
-  category              ServiceCategory @relation(fields: [categoryId], references: [id])
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  categoryId        String
+  category          ServiceCategory @relation(fields: [categoryId], references: [id])
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  title             String
+  description       String
+  shortDescription  String?
+  basePrice         Decimal         @db.Decimal(10, 2)
+  priceUnit         String          // "hour" | "day" | "project" | "item"
+  isAvailable       Boolean         @default(true)
+  serviceArea       String?
+  geoLatitude       Float?
+  geoLongitude      Float?
+  geoRadius         Int             @default(25) // km
+  minBookingHours   Int             @default(1)
+  maxBookingHours   Int             @default(8)
+  cancellationPolicy String?
+  depositPercentage Int             @default(30) // 服务商自定义定金比例
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  // Service Info
-  title                 String
-  description           String
-  shortDescription      String?
-
-  // Pricing
-  basePrice             Decimal   @db.Decimal(10, 2)
-  priceUnit             String    // "hour" | "day" | "project" | "item"
-  priceOptions          ServicePriceOption[]
-
-  // Media
-  images                String[]  @default([])
-
-  // Availability
-  isAvailable           Boolean   @default(true)
-  availableDaysOfWeek   String[]  @default([])
-  timeSlots             ServiceTimeSlot[]
-
-  // Settings
-  minBookingHours       Int       @default(1)
-  maxBookingHours       Int       @default(8)
-  cancellationPolicy    String?
-
-  // Geolocation
-  serviceArea           String?
-  geoLatitude           Float?
-  geoLongitude          Float?
-  geoRadius             Int       @default(25)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  orders                Order[]
+  priceOptions ServicePriceOption[]
+  timeSlots    ServiceTimeSlot[]
+  orders       Order[]
 
   @@index([serviceProviderId])
   @@index([categoryId])
@@ -263,59 +270,58 @@ model Service {
 }
 
 model ServicePriceOption {
-  id                    String    @id @default(cuid())
-  serviceId             String
-  service               Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  name                  String
-  price                 Decimal   @db.Decimal(10, 2)
-  description           String?
-  displayOrder          Int       @default(0)
-
-  createdAt             DateTime  @default(now())
+  id           String   @id @default(cuid())
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name         String
+  price        Decimal  @db.Decimal(10, 2)
+  description  String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
 
   @@map("service_price_options")
 }
 
 model ServiceTimeSlot {
-  id                    String    @id @default(cuid())
-  serviceId             String
-  service               Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  dayOfWeek             Int       // 0-6
-  startTime             String    // "09:00"
-  endTime               String    // "17:00"
-  isBooked              Boolean   @default(false)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id         String   @id @default(cuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      // 0=Sun … 6=Sat
+  startTime  String   // "09:00"
+  endTime    String   // "17:00"
+  isBooked   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([serviceId, dayOfWeek, startTime])
   @@map("service_time_slots")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 4. Payment & Financial Models
+// 4. Payment & Financial
 // ═══════════════════════════════════════════════════════════════════════════
 
+// 动态支付政策（管理员后台可配置，不硬编码 48h）
 model PaymentPolicy {
-  id                    String    @id @default(cuid())
-  serviceType           String    // "standard" | "simple_custom" | "complex_custom"
-  serviceCategoryId     String?
-  category              ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
+  id                      String          @id @default(cuid())
+  serviceType             String          // "standard" | "simple_custom" | "complex_custom"
+  serviceCategoryId       String?
+  category                ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
+  autoCaptureHoursBefore  Int             // 服务前 N 小时自动划扣（替代硬编码 48h）
+  isAutoCaptureEnabled    Boolean         @default(true)
+  cancellationCutoffHours Int             // 服务前 N 小时内取消收违约金
+  forfeiturePercentage    Int             // 违约金百分比 (0-100)
+  depositPercentage       Int             @default(30) // 定金百分比
+  refundDays              Int             @default(7)
+  padThresholdCad         Decimal         @default(1000) @db.Decimal(10, 2) // ≥此金额走 PAD
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  createdBy               String
 
-  autoCaptureHoursBefore Int
-  isAutoCaptureEnabled  Boolean   @default(true)
-
-  cancellationCutoffHours Int
-  forfeitturePercentage Int
-
-  depositPercentage     Int?
-  refundDays            Int       @default(7)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  createdBy             String
+  // Back-relations
+  orders         Order[]
+  customRequests CustomRequest[]
+  projects       Project[]
 
   @@unique([serviceType, serviceCategoryId])
   @@index([serviceType])
@@ -323,99 +329,109 @@ model PaymentPolicy {
 }
 
 model Order {
-  id                    String    @id @default(cuid())
-  orderNumber           String    @unique
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique
+  serviceType   String      // "standard" | "simple_custom" | "complex_custom"
+  serviceId     String?
+  service       Service?    @relation(fields: [serviceId], references: [id])
+  customRequestId String?
+  customRequest CustomRequest? @relation(fields: [customRequestId], references: [id])
+  projectId     String?
+  project       Project?    @relation(fields: [projectId], references: [id])
+  customerId    String
+  customer      User        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceProviderId String
+  serviceProvider ServiceProvider @relation(fields: [serviceProviderId], references: [id])
 
-  serviceType           String    // "standard" | "simple_custom" | "complex_custom"
-  serviceId             String?
-  service               Service?  @relation(fields: [serviceId], references: [id])
-  customRequestId       String?
-  customRequest         CustomRequest? @relation(fields: [customRequestId], references: [id])
-  projectId             String?
-  project               Project?  @relation(fields: [projectId], references: [id])
+  // 状态机（完整 12 状态，见 CLAUDE.md）
+  status        OrderStatus @default(PENDING)
 
-  customerId            String
-  customer              User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id])
+  paymentPolicyId String
+  paymentPolicy   PaymentPolicy @relation(fields: [paymentPolicyId], references: [id], onDelete: Restrict)
 
-  status                OrderStatus @default(PENDING)
+  totalAmount     Decimal @db.Decimal(10, 2)
+  depositAmount   Decimal @db.Decimal(10, 2) @default(0)
+  remainingAmount Decimal @db.Decimal(10, 2)
+  forfeitedAmount Decimal @db.Decimal(10, 2) @default(0)
 
-  paymentPolicyId       String
-  paymentPolicy         PaymentPolicy @relation(fields: [paymentPolicyId], references: [id])
+  // Stripe Manual Capture
+  stripeIntentId     String?  @unique
+  stripeIntentStatus String?
+  captureAttempts    Int      @default(0) // Cron 重试计数，上限 3
 
-  totalAmount           Decimal   @db.Decimal(10, 2)
-  depositAmount         Decimal   @db.Decimal(10, 2) @default(0)
-  remainingAmount       Decimal   @db.Decimal(10, 2)
+  // 关键时间节点
+  authorizedAt       DateTime?
+  scheduledCaptureAt DateTime? // = scheduledStartTime - policy.autoCaptureHoursBefore
+  actualCapturedAt   DateTime?
+  completedAt        DateTime?
+  settledAt          DateTime?
 
-  stripeIntentId        String?   @unique
-  stripeIntentStatus    String?
+  scheduledStartTime DateTime
+  scheduledEndTime   DateTime
+  actualStartTime    DateTime?
+  actualEndTime      DateTime?
 
-  authorizedAt          DateTime?
-  scheduledCaptureAt    DateTime?
-  actualCapturedAt      DateTime?
-  completedAt           DateTime?
-  settledAt             DateTime?
+  serviceAddress String?
+  serviceNotes   String?
 
-  scheduledStartTime    DateTime
-  scheduledEndTime      DateTime
-  actualStartTime       DateTime?
-  actualEndTime         DateTime?
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  cancellationReason String?
 
-  serviceAddress        String?
-  serviceNotes          String?
+  // PAD 关联（大额订单）
+  padAuthorizationId String?
+  padAuthorization   PADAuthorization? @relation(fields: [padAuthorizationId], references: [id])
 
-  cancelledAt           DateTime?
-  cancelledBy           String?
-  cancellationReason    String?
-  forfeittedAmount      Decimal   @db.Decimal(10, 2) @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  payments              Payment[]
-  review                Review?
+  payments  Payment[]
+  escrow    Escrow?
+  review    Review?
+  milestone Milestone?
 
   @@index([customerId])
   @@index([serviceProviderId])
   @@index([status])
+  @@index([scheduledCaptureAt]) // Cron Job 查询索引
   @@index([scheduledStartTime])
   @@map("orders")
 }
 
+// 完整状态机（12 状态）
 enum OrderStatus {
-  PENDING
-  AUTHORIZED
-  CAPTURED
-  IN_PROGRESS
-  COMPLETED
-  SETTLED
-  CANCELLED
+  PENDING               // 待支付授权
+  AUTHORIZED            // Stripe 已冻结定金
+  CRON_CAPTURING        // Cron 正在执行划扣（乐观锁防并发）
+  CAPTURED              // 48h 规则触发，资金已划扣至平台
+  IN_PROGRESS           // 用户确认"开始工作"，定金转服务商
+  PENDING_SETTLEMENT    // 用户确认完工，待支付尾款
+  COMPLETED             // 尾款已付
+  SETTLED               // T+7 资金结算至服务商
+  CANCELLED             // 取消（>T-48h，全额退款）
+  CANCELLED_FORFEITED   // 取消（<T-48h，定金没收）
+  REFUNDED              // 已退款
+  DISPUTED              // 纠纷仲裁中
 }
 
 model Payment {
-  id                    String    @id @default(cuid())
+  id                    String      @id @default(cuid())
   orderId               String
-  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
+  order                 Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   type                  PaymentType
-  amount                Decimal   @db.Decimal(10, 2)
-  currency              String    @default("CAD")
-
-  stripeTransactionId   String?   @unique
+  amount                Decimal     @db.Decimal(10, 2)
+  currency              String      @default("CAD")
+  stripeTransactionId   String?     @unique
   stripePaymentMethodId String?
   stripeStatus          String?
-
+  padAuthorizationId    String?
   escrowedAt            DateTime?
   transferredAt         DateTime?
-
   errorMessage          String?
   errorCode             String?
-  retryCount            Int       @default(0)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  retryCount            Int         @default(0)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
   @@index([orderId])
   @@index([type])
@@ -423,51 +439,47 @@ model Payment {
 }
 
 enum PaymentType {
-  AUTHORIZE
-  CAPTURE
-  REFUND
-  TRANSFER
+  AUTHORIZE    // Stripe 冻结
+  CAPTURE      // Stripe 划扣
+  REFUND       // 退款
+  TRANSFER     // 转账给服务商
+  PAD_DEBIT    // PAD 预授权借记（≥$1,000）
 }
 
 model Escrow {
-  id                    String    @id @default(cuid())
-  orderId               String    @unique
-  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  amount                Decimal   @db.Decimal(10, 2)
-  currency              String    @default("CAD")
-
-  status                EscrowStatus @default(HELD)
-  releasedAt            DateTime?
-  releasedTo            String?
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id         String      @id @default(cuid())
+  orderId    String      @unique
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount     Decimal     @db.Decimal(10, 2)
+  currency   String      @default("CAD")
+  status     EscrowStatus @default(HOLDING)
+  releasedAt DateTime?
+  releasedTo String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@index([status])
   @@map("escrows")
 }
 
 enum EscrowStatus {
-  HELD
+  HOLDING
   RELEASED_TO_PROVIDER
   REFUNDED_TO_CUSTOMER
+  DISPUTED
 }
 
 model Payout {
-  id                    String    @id @default(cuid())
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-
-  amount                Decimal   @db.Decimal(10, 2)
-  currency              String    @default("CAD")
-  period                String    // "2026-02"
-
-  status                PayoutStatus @default(PENDING)
-  stripePayoutId        String?   @unique
-
-  createdAt             DateTime  @default(now())
-  paidAt                DateTime?
+  id                String          @id @default(cuid())
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  amount            Decimal         @db.Decimal(10, 2)
+  currency          String          @default("CAD")
+  period            String          // "2026-02"
+  status            PayoutStatus    @default(PENDING)
+  stripePayoutId    String?         @unique
+  createdAt         DateTime        @default(now())
+  paidAt            DateTime?
 
   @@index([serviceProviderId])
   @@index([status])
@@ -481,92 +493,107 @@ enum PayoutStatus {
   FAILED
 }
 
+// PAD 预授权借记协议（加拿大 Payments Canada 标准，≥ CAD $1,000）
+model PADAuthorization {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  serviceProviderId String?
+  serviceProvider   ServiceProvider? @relation(fields: [serviceProviderId], references: [id])
+  institutionNo     String          // @pii:FINANCIAL (3位，加拿大金融机构编号)
+  transitNo         String          // @pii:FINANCIAL (5位，分支机构编号)
+  accountLast4      String          // @pii:FINANCIAL (末4位，明文)
+  accountType       String          // "CHEQUING" | "SAVINGS"
+  maxAmountCad      Decimal         @db.Decimal(10, 2)
+  authorizedAt      DateTime        @default(now())
+  agreementPdfUrl   String?         // Supabase Storage Canada Region
+  status            PADStatus       @default(ACTIVE)
+  revokedAt         DateTime?
+  revokedReason     String?
+  orders            Order[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("pad_authorizations")
+}
+
+enum PADStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// 5. Custom Service Models
+// 5. Custom Service (简单定制)
 // ═══════════════════════════════════════════════════════════════════════════
 
 model CustomServiceTemplate {
-  id                    String    @id @default(cuid())
-  categoryId            String?
-  category              ServiceCategory? @relation(fields: [categoryId], references: [id])
+  id           String          @id @default(cuid())
+  categoryId   String?
+  category     ServiceCategory? @relation(fields: [categoryId], references: [id])
+  name         String
+  description  String?
+  color        String?
+  displayOrder Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  name                  String
-  description           String?
-  color                 String?
-  displayOrder          Int       @default(0)
-
-  steps                 CustomFormStep[]
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  steps          CustomFormStep[]
+  customRequests CustomRequest[]
 
   @@map("custom_service_templates")
 }
 
 model CustomFormStep {
-  id                    String    @id @default(cuid())
-  templateId            String
-  template              CustomServiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  stepNumber            Int
-  title                 String
-  description           String?
-
-  fields                CustomFormField[]
+  id          String                @id @default(cuid())
+  templateId  String
+  template    CustomServiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  stepNumber  Int
+  title       String
+  description String?
+  fields      CustomFormField[]
 
   @@unique([templateId, stepNumber])
   @@map("custom_form_steps")
 }
 
 model CustomFormField {
-  id                    String    @id @default(cuid())
-  stepId                String
-  step                  CustomFormStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
-
-  fieldType             String
-  fieldKey              String
-  label                 String
-  placeholder           String?
-  required              Boolean   @default(false)
-
-  options               String[]  @default([])
-
-  displayOrder          Int       @default(0)
+  id           String         @id @default(cuid())
+  stepId       String
+  step         CustomFormStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  fieldType    String         // "text"|"number"|"select"|"multiselect"|"date"|"file"
+  fieldKey     String
+  label        String
+  placeholder  String?
+  required     Boolean        @default(false)
+  optionsJson  String?        // JSON array（替代 String[]，SQLite 兼容，PG 也可用）
+  displayOrder Int            @default(0)
 
   @@map("custom_form_fields")
 }
 
 model CustomRequest {
-  id                    String    @id @default(cuid())
-  requestNumber         String    @unique
+  id              String                @id @default(cuid())
+  requestNumber   String                @unique
+  customerId      String
+  customer        User                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  templateId      String
+  template        CustomServiceTemplate @relation(fields: [templateId], references: [id])
+  formResponsesJson String             // JSON（替代 Json 类型，SQLite 兼容）
+  isDirected      Boolean              @default(false)
+  directedToJson  String?              // JSON array of serviceProviderId
+  isOpenToAll     Boolean              @default(true)
+  status          CustomRequestStatus  @default(OPEN)
+  selectedBidId   String?              @unique
+  selectedBid     Bid?                 @relation("SelectedBid", fields: [selectedBidId], references: [id])
+  biddingDeadline DateTime?
+  paymentPolicyId String?
+  paymentPolicy   PaymentPolicy?       @relation(fields: [paymentPolicyId], references: [id])
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
-  customerId            String
-  customer              User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  templateId            String
-  template              CustomServiceTemplate @relation(fields: [templateId], references: [id])
-
-  formResponses         Json
-
-  isDirected            Boolean   @default(false)
-  directedTo            String[]  @default([])
-  isOpenToAll           Boolean   @default(true)
-
-  status                CustomRequestStatus @default(OPEN)
-  selectedBidId         String?
-  selectedBid           Bid?      @relation("SelectedBid", fields: [selectedBidId], references: [id])
-
-  biddingDeadline       DateTime?
-
-  paymentPolicyId       String?
-  paymentPolicy         PaymentPolicy? @relation(fields: [paymentPolicyId], references: [id])
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  bids                  Bid[]     @relation("RequestBids")
-  orders                Order[]
+  bids   Bid[]   @relation("RequestBids")
+  orders Order[]
 
   @@index([customerId])
   @@index([status])
@@ -582,29 +609,23 @@ enum CustomRequestStatus {
 }
 
 model Bid {
-  id                    String    @id @default(cuid())
-  customRequestId       String
-  customRequest         CustomRequest @relation("RequestBids", fields: [customRequestId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  customRequestId   String
+  customRequest     CustomRequest   @relation("RequestBids", fields: [customRequestId], references: [id], onDelete: Cascade)
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  amount            Decimal         @db.Decimal(10, 2)
+  estimatedDuration String?
+  proposal          String?
+  status            BidStatus       @default(OPEN)
+  acceptedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  isSelected        Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-
-  amount                Decimal   @db.Decimal(10, 2)
-  estimatedDuration     String?
-  proposal              String?
-
-  status                BidStatus @default(OPEN)
-
-  acceptedAt            DateTime?
-  rejectedAt            DateTime?
-  rejectionReason       String?
-
-  isSelected            Boolean   @default(false)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  selectedRequest       CustomRequest? @relation("SelectedBid")
+  selectedRequest CustomRequest? @relation("SelectedBid")
 
   @@unique([customRequestId, serviceProviderId])
   @@index([customRequestId])
@@ -620,48 +641,38 @@ enum BidStatus {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 6. Complex Service Models
+// 6. Complex Service — Project / Contract / Milestone
+// 合同版本控制: Myers Diff (行级)，npm `diff@^5.1.0`
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Project {
-  id                    String    @id @default(cuid())
-  projectNumber         String    @unique
+  id                String          @id @default(cuid())
+  projectNumber     String          @unique
+  customerId        String
+  customer          User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceProviderId String
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  title             String
+  description       String
+  scope             String?
+  location          String
+  latitude          Float?
+  longitude         Float?
+  estimatedStartDate DateTime
+  estimatedEndDate   DateTime
+  actualStartDate    DateTime?
+  actualEndDate      DateTime?
+  status            ProjectStatus   @default(DRAFT)
+  totalProjectValue Decimal         @db.Decimal(10, 2)
+  paymentPolicyId   String?
+  paymentPolicy     PaymentPolicy?  @relation(fields: [paymentPolicyId], references: [id])
+  activeContractId  String?         // 当前生效合同版本
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  customerId            String
-  customer              User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  serviceProviderId     String
-  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
-
-  title                 String
-  description           String
-  scope                 String?
-
-  location              String
-  latitude              Float?
-  longitude             Float?
-
-  estimatedStartDate    DateTime
-  estimatedEndDate      DateTime
-  actualStartDate       DateTime?
-  actualEndDate         DateTime?
-
-  currentContractId     String?
-  currentContract       Contract? @relation(fields: [currentContractId], references: [id])
-
-  status                ProjectStatus @default(DRAFT)
-
-  milestones            Milestone[]
-
-  totalProjectValue     Decimal   @db.Decimal(10, 2)
-  paymentPolicy         PaymentPolicy? @relation(fields: [paymentPolicyId], references: [id])
-  paymentPolicyId       String?
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  contracts             Contract[]
+  contracts  Contract[]
+  milestones Milestone[]
+  orders     Order[]
 
   @@index([customerId])
   @@index([serviceProviderId])
@@ -678,32 +689,16 @@ enum ProjectStatus {
 }
 
 model Contract {
-  id                    String    @id @default(cuid())
-  projectId             String
-  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  status    ContractStatus @default(DRAFT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  versionNumber         Int       @default(1)
+  versions ContractVersion[]
 
-  title                 String
-  content               String
-
-  status                ContractStatus @default(DRAFT)
-  customerSignedAt      DateTime?
-  providerSignedAt      DateTime?
-  adminApprovedAt       DateTime?
-
-  parentVersionId       String?
-  parentVersion         Contract? @relation("VersionHistory", fields: [parentVersionId], references: [id])
-  childVersions         Contract[] @relation("VersionHistory")
-
-  diffFromPrevious      String?
-  changesSummary        String?
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  createdBy             String
-
-  @@unique([projectId, versionNumber])
   @@index([projectId])
   @@index([status])
   @@map("contracts")
@@ -711,40 +706,78 @@ model Contract {
 
 enum ContractStatus {
   DRAFT
-  CUSTOMER_REVIEW
-  PROVIDER_REVIEW
-  SIGNED
-  COMPLETED
+  ACTIVE
+  DISPUTED
   TERMINATED
 }
 
+// 合同版本快照（每次修改生成新版本，支持 Diff 回溯）
+model ContractVersion {
+  id           String                @id @default(cuid())
+  contractId   String
+  contract     Contract              @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  version      Int                   // 自增版本号 (1, 2, 3…)
+  content      String                // Markdown 全文
+  diffFromPrev String?               // JSON: [{type,lineStart,lineEnd,text}]（Myers Diff）
+  editorId     String
+  editor       User                  @relation(fields: [editorId], references: [id])
+  status       ContractVersionStatus @default(DRAFT)
+  createdAt    DateTime              @default(now())
+
+  signatures ContractSignature[]
+
+  @@unique([contractId, version])
+  @@index([contractId])
+  @@index([status])
+  @@map("contract_versions")
+}
+
+enum ContractVersionStatus {
+  DRAFT       // 草稿，未提交对方
+  PENDING     // 等待对方签署
+  SIGNED      // 双方签署完成
+  SUPERSEDED  // 已被新版本替代
+}
+
+// 电子签名记录（CPPA 合规，保留 IP + UA）
+model ContractSignature {
+  id                String          @id @default(cuid())
+  contractVersionId String
+  contractVersion   ContractVersion @relation(fields: [contractVersionId], references: [id], onDelete: Cascade)
+  signerId          String
+  signer            User            @relation(fields: [signerId], references: [id])
+  role              String          // "CUSTOMER" | "PROVIDER"
+  ipAddress         String?         // @pii:CONTACT (用于法律存证)
+  userAgent         String?
+  signedAt          DateTime        @default(now())
+
+  @@unique([contractVersionId, signerId])
+  @@index([contractVersionId])
+  @@map("contract_signatures")
+}
+
 model Milestone {
-  id                    String    @id @default(cuid())
-  projectId             String
-  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  milestoneNumber       Int
-  title                 String
-  description           String?
-
-  startDate             DateTime
-  endDate               DateTime
-  actualStartDate       DateTime?
-  actualEndDate         DateTime?
-
-  deliverables          String?
-
-  amount                Decimal   @db.Decimal(10, 2)
-  depositPercentage     Int?
-  paymentStatus         MilestonePaymentStatus @default(PENDING)
-
-  status                MilestoneStatus @default(PENDING)
-
-  orderId               String?
-  order                 Order?    @relation(fields: [orderId], references: [id])
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id              String          @id @default(cuid())
+  projectId       String
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  serviceProviderId String
+  serviceProvider ServiceProvider @relation(fields: [serviceProviderId], references: [id])
+  milestoneNumber Int
+  title           String
+  description     String?
+  startDate       DateTime
+  endDate         DateTime
+  actualStartDate DateTime?
+  actualEndDate   DateTime?
+  deliverables    String?
+  amount          Decimal         @db.Decimal(10, 2)
+  depositPercentage Int?
+  paymentStatus   MilestonePaymentStatus @default(PENDING)
+  status          MilestoneStatus        @default(PENDING)
+  orderId         String?         @unique
+  order           Order?          @relation(fields: [orderId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@unique([projectId, milestoneNumber])
   @@index([projectId])
@@ -768,57 +801,56 @@ enum MilestonePaymentStatus {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 7. Community Forum Models
+// 7. Community Forum（Geohash LBS）
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Post {
-  id                    String    @id @default(cuid())
+  id           String   @id @default(cuid())
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title        String?
+  content      String
+  likeCount    Int      @default(0)
+  commentCount Int      @default(0)
+  isApproved   Boolean  @default(true)
+  isPinned     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  authorId              String
-  author                User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  title                 String?
-  content               String
-
-  geoTag                String
-  latitude              Float?
-  longitude             Float?
-  geoRadius             Int       @default(25)
-
-  likeCount             Int       @default(0)
-  commentCount          Int       @default(0)
-
-  isApproved            Boolean   @default(true)
-  isPinned              Boolean   @default(false)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  comments              Comment[]
+  geoTag    PostGeoTag?
+  comments  Comment[]
 
   @@index([authorId])
-  @@index([geoTag])
   @@index([createdAt])
   @@map("posts")
 }
 
+// Geohash 索引拆分（高效半径检索，精度级别 7 ≈ 150m）
+model PostGeoTag {
+  id        String  @id @default(cuid())
+  postId    String  @unique
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  geohash   String  // ngeohash.encode(lat, lng, 7)，如 "dpxhqr5"
+  city      String?
+  region    String? // 省份/地区
+
+  @@index([geohash]) // 关键：Cron 半径检索用此索引
+  @@map("post_geo_tags")
+}
+
 model Comment {
-  id                    String    @id @default(cuid())
-  postId                String
-  post                  Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  authorId              String
-  author                User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  content               String
-
-  likeCount             Int       @default(0)
-
-  isApproved            Boolean   @default(true)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  likeCount Int      @default(0)
+  isApproved Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([postId])
   @@index([authorId])
@@ -826,79 +858,129 @@ model Comment {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 8. AI-News Feed Models
+// 8. AI-News Feed
 // ═══════════════════════════════════════════════════════════════════════════
 
+// RSS/YouTube 数据源（管理端 CRUD）
+model FeedSource {
+  id            String    @id @default(cuid())
+  name          String
+  type          FeedType
+  url           String    @unique
+  crawlCron     String    @default("0 */6 * * *") // 默认每 6 小时
+  isActive      Boolean   @default(true)
+  lastCrawledAt DateTime?
+  nextCrawlAt   DateTime?
+  errorCount    Int       @default(0)
+  lastErrorMsg  String?
+  language      String    @default("en")
+  category      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  articles  Article[]
+  crawlLogs FeedCrawlLog[]
+
+  @@index([isActive])
+  @@index([type])
+  @@map("feed_sources")
+}
+
+enum FeedType {
+  RSS
+  YOUTUBE
+}
+
+// 抓取日志（监控 + 报警）
+model FeedCrawlLog {
+  id         String     @id @default(cuid())
+  sourceId   String
+  source     FeedSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  status     String     // "SUCCESS" | "FAILED" | "PARTIAL"
+  itemCount  Int        @default(0)
+  errorMsg   String?
+  durationMs Int?
+  crawledAt  DateTime   @default(now())
+
+  @@index([sourceId])
+  @@index([crawledAt])
+  @@map("feed_crawl_logs")
+}
+
 model Article {
-  id                    String    @id @default(cuid())
+  id               String    @id @default(cuid())
+  feedSourceId     String?
+  feedSource       FeedSource? @relation(fields: [feedSourceId], references: [id])
+  externalId       String?   @unique // RSS guid 或 YouTube videoId
+  title            String
+  originalTitle    String?
+  content          String
+  summary          String?   // AI 生成摘要（英文）
+  summaryZh        String?   // AI 生成摘要（中文）
+  fiveW1H          String?   // AI 提取的 5W1H JSON
+  author           String?
+  imageUrl         String?
+  sourceUrl        String    @unique
+  publishedAt      DateTime
+  isTranslated     Boolean   @default(false)
+  translatedContent String?
+  sentimentScore   Float?    // -1.0 ~ +1.0
+  sentiment        String?   // "positive"|"negative"|"neutral"
+  aiProcessedAt    DateTime?
+  aiModelUsed      String?
+  aiCostUsd        Decimal?  @db.Decimal(8, 6) // 成本追踪
+  likeCount        Int       @default(0)
+  shareCount       Int       @default(0)
+  viewCount        Int       @default(0)
+  isActive         Boolean   @default(true)
+  isFeatured       Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  sourceType            String    // "rss" | "youtube"
-  sourceId              String?
-  externalId            String?   @unique
+  tags             ArticleTag[]
+  userInteractions UserArticleInteraction[]
+  embedding        ArticleEmbedding?
 
-  title                 String
-  originalTitle         String?
-  content               String
-  summary               String?
-  summaryZh             String?
-
-  author                String?
-  imageUrl              String?
-  sourceUrl             String    @unique
-  publishedAt           DateTime
-
-  isTranslated          Boolean   @default(false)
-  translatedContent     String?
-  sentimentScore        Float?
-  sentiment             String?
-
-  tags                  ArticleTag[]
-  categories            String[]  @default([])
-
-  likeCount             Int       @default(0)
-  shareCount            Int       @default(0)
-  viewCount             Int       @default(0)
-
-  isActive              Boolean   @default(true)
-  isFeatured            Boolean   @default(false)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relations
-  userInteractions      UserArticleInteraction[]
-
-  @@index([sourceType])
+  @@index([feedSourceId])
   @@index([publishedAt])
   @@index([isActive])
+  @@index([sentiment])
   @@map("articles")
 }
 
 model ArticleTag {
-  id                    String    @id @default(cuid())
-  articleId             String
-  article               Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
-
-  tag                   String
-  confidence            Float?
-
-  createdAt             DateTime  @default(now())
+  id         String   @id @default(cuid())
+  articleId  String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag        String
+  confidence Float?
+  createdAt  DateTime @default(now())
 
   @@unique([articleId, tag])
   @@index([tag])
   @@map("article_tags")
 }
 
+// 文章向量嵌入（相似推荐）
+model ArticleEmbedding {
+  id        String   @id @default(cuid())
+  articleId String   @unique
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  vectorJson String  // JSON 序列化 Float[]（余弦相似度）
+  model     String   @default("text-embedding-3-small")
+  createdAt DateTime @default(now())
+
+  @@map("article_embeddings")
+}
+
 model UserInterest {
-  id                    String    @id @default(cuid())
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  tag                   String
-  weight                Float     @default(1.0)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag       String
+  weight    Float    @default(1.0) // 行为加权，自动更新
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, tag])
   @@index([userId])
@@ -906,21 +988,18 @@ model UserInterest {
 }
 
 model UserArticleInteraction {
-  id                    String    @id @default(cuid())
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  articleId             String
-  article               Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
-
-  isLiked               Boolean   @default(false)
-  isBookmarked          Boolean   @default(false)
-  isShared              Boolean   @default(false)
-  viewedAt              DateTime?
-  viewDuration          Int?
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articleId    String
+  article      Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  isLiked      Boolean  @default(false)
+  isBookmarked Boolean  @default(false)
+  isShared     Boolean  @default(false)
+  viewedAt     DateTime?
+  viewDurationSec Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([userId, articleId])
   @@index([userId])
@@ -929,29 +1008,24 @@ model UserArticleInteraction {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 9. Notification & Subscription Models
+// 9. Notifications & SMS
 // ═══════════════════════════════════════════════════════════════════════════
 
 model Notification {
-  id                    String    @id @default(cuid())
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  type                  NotificationType
-  title                 String
-  message               String
-
-  relatedOrderId        String?
-  relatedPostId         String?
-  actionUrl             String?
-
-  isRead                Boolean   @default(false)
-  readAt                DateTime?
-
-  isEmailSent           Boolean   @default(false)
-  isPushSent            Boolean   @default(false)
-
-  createdAt             DateTime  @default(now())
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  title          String
+  message        String
+  relatedOrderId String?
+  relatedPostId  String?
+  actionUrl      String?
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  isEmailSent    Boolean          @default(false)
+  isPushSent     Boolean          @default(false)
+  createdAt      DateTime         @default(now())
 
   @@index([userId])
   @@index([isRead])
@@ -963,97 +1037,154 @@ enum NotificationType {
   ORDER_CONFIRMED
   ORDER_STARTED
   ORDER_COMPLETED
+  DEPOSIT_CAPTURED    // 48h Cron 划扣通知
   PAYMENT_RECEIVED
   PAYMENT_FAILED
   BID_RECEIVED
   BID_ACCEPTED
+  CONTRACT_UPDATED    // 合同版本变更
+  CONTRACT_SIGNED
   REVIEW_REQUESTED
   NEW_COMMENT
   POST_LIKE
   SYSTEM_ALERT
+  DELETION_COMPLETED  // CPPA 被遗忘权完成通知
 }
 
 model Subscription {
-  id                    String    @id @default(cuid())
-  userId                String?
-
-  fcmToken              String?   @unique
-  deviceId              String?
-
-  emailNotifications    Boolean   @default(true)
-  pushNotifications     Boolean   @default(true)
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                 String  @id @default(cuid())
+  userId             String?
+  fcmToken           String? @unique
+  webPushEndpoint    String? @unique // PWA Web Push
+  webPushP256dh      String?
+  webPushAuth        String?
+  deviceId           String?
+  emailNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@map("subscriptions")
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 10. AI Crawler & Content Management
-// ═══════════════════════════════════════════════════════════════════════════
+// 短信日志（离线唤起）
+model SMSLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  phone      String   // @pii:CONTACT
+  message    String
+  status     String   // "SENT" | "FAILED" | "PENDING"
+  provider   String   @default("twilio")
+  externalId String?
+  sentAt     DateTime @default(now())
 
-model RssFeed {
-  id                    String    @id @default(cuid())
-  name                  String
-  url                   String    @unique
-  description           String?
-
-  lastFetchedAt         DateTime?
-  nextFetchAt           DateTime?
-
-  isActive              Boolean   @default(true)
-  failureCount          Int       @default(0)
-
-  category              String?
-  language              String    @default("en")
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  @@index([isActive])
-  @@map("rss_feeds")
+  @@index([userId])
+  @@index([sentAt])
+  @@map("sms_logs")
 }
 
-model AiTaskLog {
-  id                    String    @id @default(cuid())
-  taskType              String
-  resourceId            String?
-  resourceType          String?
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. CPPA 合规模型
+// ═══════════════════════════════════════════════════════════════════════════
 
-  status                String
-  result                Json?
-  errorMessage          String?
+// AI 决策透明度日志（算法透明度，CPPA 要求）
+model AIDecisionLog {
+  id            String         @id @default(cuid())
+  userId        String?
+  user          User?          @relation(fields: [userId], references: [id])
+  decisionType  AIDecisionType
+  inputSummary  String         // 脱敏后的输入摘要（不含 PII）
+  outputSummary String         // 决策结果摘要
+  explanation   String         // 给用户的可读解释（中英文 JSON）
+  modelUsed     String         // "gpt-4o-mini" | "claude-3-haiku" 等
+  costUsd       Decimal        @db.Decimal(8, 6)
+  appealUrl     String?        // 申诉端点
+  createdAt     DateTime       @default(now())
 
-  startedAt             DateTime?
-  completedAt           DateTime?
-  durationMs            Int?
-
-  createdAt             DateTime  @default(now())
-
-  @@index([taskType])
-  @@index([status])
+  @@index([userId])
+  @@index([decisionType])
   @@index([createdAt])
-  @@map("ai_task_logs")
+  @@map("ai_decision_logs")
+}
+
+enum AIDecisionType {
+  CONTENT_RECOMMENDATION // 内容推荐
+  SERVICE_RANKING        // 服务排序
+  PRICE_SUGGESTION       // 定价建议
+  FRAUD_DETECTION        // 风控拒绝 ← 必须提供解释
+  CONTRACT_ANALYSIS      // 合同分析
+}
+
+// Token 配额（防滥用，每日上限 50,000 tokens/用户）
+model AIUsageQuota {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime // 按日分组（UTC 日期）
+  tokensUsed  Int      @default(0)
+  tokensLimit Int      @default(50000)
+  costUsd     Decimal  @default(0) @db.Decimal(8, 4)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([date])
+  @@map("ai_usage_quotas")
+}
+
+// 语义缓存（Upstash Redis 的持久化备份，TTL=1h）
+model AISemanticCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique // SHA256(normalized_prompt)
+  prompt    String
+  response  String   // JSON 序列化
+  modelUsed String
+  hitCount  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("ai_semantic_cache")
+}
+
+// 被遗忘权申请（CPPA 第 7 条）
+model DataDeletionRequest {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id])
+  requestedAt     DateTime       @default(now())
+  completedAt     DateTime?
+  status          DeletionStatus @default(PENDING)
+  retentionReason String?        // 法律保留原因（如财务记录 7 年）
+  auditLog        String?        // JSON：记录哪些字段被匿名化
+
+  @@index([userId])
+  @@index([status])
+  @@map("data_deletion_requests")
+}
+
+enum DeletionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  PARTIALLY_RETAINED // 部分字段因法律原因保留
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 11. Admin & Audit Models
+// 11. Admin & Audit
 // ═══════════════════════════════════════════════════════════════════════════
 
 model AdminLog {
-  id                    String    @id @default(cuid())
-  adminId               String
-  admin                 User      @relation(fields: [adminId], references: [id], onDelete: Cascade)
-
-  action                String
-  resourceType          String
-  resourceId            String
-
-  changes               Json?
-  notes                 String?
-
-  createdAt             DateTime  @default(now())
+  id           String   @id @default(cuid())
+  adminId      String
+  admin        User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action       String
+  resourceType String
+  resourceId   String
+  changesJson  String?  // JSON
+  notes        String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
 
   @@index([adminId])
   @@index([resourceType])
@@ -1062,12 +1193,11 @@ model AdminLog {
 }
 
 model SystemConfig {
-  id                    String    @id @default(cuid())
-  key                   String    @unique
-  value                 String
-
-  description           String?
-  updatedAt             DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
 
   @@map("system_configs")
 }
