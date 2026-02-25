@@ -1,593 +1,435 @@
-# CLAUDE.md - 优服佳项目开发指南
+# CLAUDE.md — 优服佳 (YouFuJia) 开发宪章执行手册
 
+**版本**: 2.0 (宪章 v2 全量对齐)
 **最后更新**: 2026-02-25
-**项目版本**: 0.1.0 (MVP)
-**维护者**: Claude AI + Development Team
+**宪章状态**: ✅ CPO 已批准进入编码阶段
 
 ---
 
-## 📌 项目快速概览
+## 🤖 每次会话启动：上下文自检（强制）
 
-**优服佳** 是一个三层生态系统：
-1. **信息层** (AI-News Feed) - 全球信息聚合与本地化推荐
-2. **社交层** (社区论坛) - Geo-tag 本地社交网络
-3. **交易层** (服务体系) - 标准/定制/项目类服务交易
+> Agent 必须在每轮对话开始时默读并声明以下原则，防止跑偏：
 
-**技术栈**: Next.js 14 + Prisma + PostgreSQL + Stripe
-
----
-
-## 🚀 快速启动（新开发者必读）
-
-```bash
-# 1. 进入项目
-cd /Users/joelyan/Documents/AI-Combo/youfujia
-
-# 2. 启动 PostgreSQL
-docker-compose up -d
-
-# 3. 初始化数据库
-npm run db:push && npm run db:seed
-
-# 4. 启动开发服务器
-npm run dev
-
-# 5. 访问应用
-# - 主页: http://localhost:3000
-# - 用户端: http://localhost:3000/app
-# - 管理端: http://localhost:3000/admin
-```
-
-如遇问题，查看 `TROUBLESHOOTING.md`
+- [ ] Stripe Manual Capture + 48h Cron 自动划扣（不可硬编码时间）
+- [ ] 数据必须存储于加拿大境内节点（Supabase Canada / ca-central-1）
+- [ ] PWA 必须实现 Service Workers + 离线缓存 + Web Push
+- [ ] AODA/WCAG 2.1 AA 级合规（对比度、键盘导航、ARIA）
+- [ ] CPPA 算法透明度：AI 决策必须写入 AIDecisionLog 并可查询
+- [ ] 被遗忘权：一键抹除接口 `POST /api/my/data-deletion`
+- [ ] 合同版本控制：Myers Diff（行级）+ 电子签名
+- [ ] 原子化提交：每次 PR < 200 行，附完成标准
+- [ ] TDD：复杂逻辑先写测试，后写业务代码
+- [ ] AI 成本：复杂调用 > $0.05/call 需 CPO 批准
 
 ---
 
-## 🔑 关键技术决策与 Gotchas
+## 📌 项目定位
 
-### 1. Next.js 配置文件格式
+**"信息认知 + 社交撮合 + 交易执行"** 三位一体生态
 
-**❌ 不要用**: `next.config.ts`
-**✅ 应该用**: `next.config.js`
-
-**原因**: Next.js 14 不支持 TypeScript 配置文件。项目已在 `next.config.js` 中配置。
-
-**相关命令**:
-```bash
-# 如果编译出错，确保使用的是 .js 而不是 .ts
-npx next build
-```
+| 层 | 模块 | 核心价值 |
+|----|------|---------|
+| 信息层 | AI-News Feed | RSS/YouTube → AI 提炼 → 个性化推荐 |
+| 社交层 | 社区论坛 | Geo-tag 本地内容，Geohash 半径检索 |
+| 交易层 | 优服佳服务 | 标准/简单定制/复杂定制，Stripe 托管支付 |
 
 ---
 
-### 2. TypeScript Seed 脚本执行
+## 🏗️ 技术栈（锁定版本，不得随意升级）
 
-**❌ 不要用**: `node prisma/seed.js`
-**✅ 应该用**: `node --loader ts-node/esm prisma/seed.ts`
+| 类别 | 技术 | 版本 | 备注 |
+|------|------|------|------|
+| 框架 | Next.js | 14.2.x | ⚠️ 不用 15，配置文件不兼容 |
+| React | React | 18.3.x | ⚠️ 不用 19，与 testing-library 冲突 |
+| 认证 | NextAuth.js | 4.24.x | ⚠️ 不用 v5，仍在 beta |
+| ORM | Prisma | 5.20.x | 搭配 PostgreSQL，不用 SQLite |
+| 数据库 | Supabase PostgreSQL | Canada Region | ⚠️ 建项目时必须选 Canada (Central) |
+| 缓存 | Upstash Redis | Canada Region | 语义缓存 + Cron 幂等锁 |
+| 支付 | Stripe | 15.x | Manual Capture 模式 |
+| Passkeys | SimpleWebAuthn | latest | 纯 TS，数据不出境 |
+| CSS | Tailwind CSS + Shadcn UI | 3.4.x | 统一组件库 |
+| 部署 | Vercel | - | Serverless，按需计费 |
+| WAF | Cloudflare | - | DDoS + AI 接口限流 |
 
-**已配置在 package.json**:
-```json
-"db:seed": "node --loader ts-node/esm prisma/seed.ts"
-```
-
-**直接运行**:
-```bash
-npm run db:seed
-```
-
-**相关依赖**: `ts-node@^10.9.2` (已安装)
-
----
-
-### 3. Prisma 与 PostgreSQL 最小配置
-
-**数据库模式**: PostgreSQL 15 Alpine (Docker)
-
-**关键文件**:
-- `prisma/schema.prisma` - 60+ 数据模型
-- `.env` - DATABASE_URL 必须配置
-
-**常用命令**:
-```bash
-npm run db:push      # 同步 Schema 到数据库
-npm run db:migrate   # 创建迁移文件
-npm run db:studio    # 打开 Prisma Studio (http://localhost:5555)
-```
-
-**Gotcha**: SQLite 与 SQLite 都不兼容 Decimal、JSON 数组等类型，必须用 PostgreSQL
-
----
-
-### 4. 依赖版本兼容性
-
-**固定版本** (不要升级):
-- `next@^14.2.0` - Next.js 15 配置文件格式不同
-- `react@^18.3.0` - React 19 与 @testing-library 有冲突
-- `next-auth@^4.24.0` - v5 还在 beta，不稳定
-
-**安装方式**:
+**安装命令**（固定）:
 ```bash
 npm install --legacy-peer-deps
 ```
 
-**Gotcha**: 使用 `npm install` 而不是 `npm ci` 时，务必加 `--legacy-peer-deps` 以跳过 React 18/19 的对等依赖冲突
+---
+
+## 🚀 快速启动
+
+```bash
+cd /Users/joelyan/Documents/AI-Combo/youfujia
+docker-compose up -d            # 启动 PostgreSQL（本地开发）
+npm run db:push                 # 同步 Schema
+npm run db:seed                 # 种子数据
+npm run dev                     # http://localhost:3000
+```
+
+| 地址 | 用途 |
+|------|------|
+| localhost:3000 | 主页 |
+| localhost:3000/app | 用户端（Feed/服务/论坛） |
+| localhost:3000/admin | 管理端 |
+| localhost:5555 | Prisma Studio |
+
+遇问题 → `TROUBLESHOOTING.md`
 
 ---
 
-### 5. 环境变量与本地测试
+## 🔑 关键 Gotchas（血泪教训）
 
-**必需变量** (在 `.env` 中):
-```env
-DATABASE_URL=postgresql://youfujia_user:youfujia_password@localhost:5432/youfujia
-NEXTAUTH_SECRET=<至少 32 字符>
-NEXTAUTH_URL=http://localhost:3000
-STRIPE_SECRET_KEY=sk_test_...
-```
-
-**本地测试用占位符**:
-```env
-STRIPE_SECRET_KEY=sk_test_placeholder_local_testing_only
-STRIPE_PUBLISHABLE_KEY=pk_test_placeholder_local_testing_only
-CRON_API_KEY=test-cron-secret-for-local-testing
-```
-
-**Gotcha**: `.env.local` 优先级比 `.env` 高，开发时保留两个文件
+| # | ❌ 错误做法 | ✅ 正确做法 | 原因 |
+|---|-----------|-----------|------|
+| 1 | `next.config.ts` | `next.config.js` | Next.js 14 不支持 TS 配置文件 |
+| 2 | `node prisma/seed.js` | `node --loader ts-node/esm prisma/seed.ts` | seed 文件是 TS |
+| 3 | 硬编码 `48` 小时 | 从 `PaymentPolicy.autoCaptureHoursBefore` 读取 | 管理员可配置 |
+| 4 | `npm install` | `npm install --legacy-peer-deps` | React 18/19 对等依赖冲突 |
+| 5 | SQLite | PostgreSQL | SQLite 不支持 Decimal、JSON Array |
+| 6 | 直接存卡号 | Stripe Hosted Fields | PCI-DSS 合规，服务器不碰卡数据 |
+| 7 | 在组件内硬编码颜色 | CSS 变量 `var(--color-primary)` | 主题系统统一管理 |
+| 8 | API 路由用 `index.ts` | `route.ts` | Next.js App Router 约定 |
+| 9 | Cron 不加幂等锁 | `await redisLock(lockKey)` | 并发防重复划扣 |
+| 10 | 修改枚举后不重新生成 | `npx prisma generate` | Client 类型需同步 |
 
 ---
 
-## 💾 数据库设计关键点
+## 🍁 加拿大合规要求（强制）
 
-### Prisma Schema 结构
+### 数据驻留
+- **所有 PII 必须存储于 Supabase Canada Region（ca-central-1）**
+- Supabase 建项目时选 **Canada (Central)**，之后无法迁移
+- Redis 用 Upstash Canada Region
+- 文件存储（PAD 协议 PDF、合同）用 Supabase Storage Canada
 
-**60+ 模型** 按业务域分组 (注释标记):
-
-```prisma
-// 1. User & Auth Models (用户认证)
-model User { ... }
-model AuthToken { ... }
-
-// 2. Service Provider (服务商)
-model ServiceProvider { ... }
-model Review { ... }
-
-// 3. Standard Services (标准服务)
-model Service { ... }
-model ServicePriceOption { ... }
-
-// 4. Payment & Financial (支付与财务)
-model PaymentPolicy { ... }      // ⭐ 关键：48h 自动划扣配置
-model Order { ... }
-model Payment { ... }
-model Escrow { ... }
-model Payout { ... }
-
-// 5. Custom Services (定制服务)
-model CustomRequest { ... }
-model Bid { ... }
-
-// 6. Projects (项目/合同)
-model Project { ... }            // ⭐ 关键：版本控制支持
-model Contract { ... }
-model Milestone { ... }
-
-// 7. Community (社区论坛)
-model Post { ... }
-model Comment { ... }
-
-// 8. AI Feed (信息聚合)
-model Article { ... }
-model ArticleTag { ... }
-model UserInterest { ... }
-
-// 9. Notifications (通知)
-model Notification { ... }
-model Subscription { ... }
-
-// 10. Admin (管理)
-model AdminLog { ... }
-model SystemConfig { ... }
+### PII 字段标注规范
+Schema 注释中标明分类，便于合规 Agent 审查：
+```
+// @pii:IDENTITY    - 姓名、头像
+// @pii:CONTACT     - 邮箱、电话
+// @pii:CREDENTIAL  - 密码 hash、MFA secret、Passkey
+// @pii:FINANCIAL   - 银行账号末4位、机构编号
+// @pii:SENSITIVE   - 生日、SIN 末4位
 ```
 
-**Gotcha**: 模型间关系需要使用 `@relation` 标记，尤其是双向关系
+### CPPA 被遗忘权
+```
+POST /api/my/data-deletion
+→ 用户发起删除请求
+→ 写入 DataDeletionRequest（status=PENDING）
+→ 后台任务：匿名化 PII 字段（不物理删除，保留 7 年财务记录）
+→ 返回完成确认 + 保留原因说明
+```
+
+### CPPA 算法透明度
+**任何 AI 影响用户的决策必须写入 AIDecisionLog**：
+```typescript
+// 写入日志示例
+await prisma.aIDecisionLog.create({
+  data: {
+    userId,
+    decisionType: 'FRAUD_DETECTION',
+    explanation: '您的服务商评分低于平台最低标准(3.0)，已被降低推荐权重',
+    modelUsed: 'gpt-4o-mini',
+    costUsd: 0.0002,
+  }
+})
+// 用户可查询: GET /api/my/ai-decisions
+```
+
+### AODA/WCAG 2.1 AA 合规
+所有 UI 组件必须满足：
+- 对比度：正文 ≥ 4.5:1，大字 ≥ 3:1
+- 键盘可导航：`focus-visible:ring-2` 聚焦环可见
+- 图片 `alt` 文字必填
+- 表单 `label` 与 `input` 关联
+- ARIA landmarks：`role="main"`, `role="navigation"`
+- 动态内容：`aria-live="polite"`
+- 支持 `prefers-contrast: high`
 
 ---
 
-### 状态机与枚举
+## 💾 数据库 Schema 全量概览（v2）
 
-**关键枚举** (必须在 Prisma 中定义):
+```
+业务域                  核心模型
+────────────────────────────────────────────────────────────────
+1. 用户认证             User, AuthToken, Passkey
+2. 内容源管理           FeedSource, FeedCrawlLog             ⭐NEW
+3. AI 文章              Article, ArticleTag, ArticleEmbedding ⭐NEW
+4. 兴趣推荐             UserInterest, UserArticleInteraction
+5. 论坛                 Post, Comment, PostGeoTag             ⭐NEW
+6. 服务商               ServiceProvider, ServiceCategory, Review
+7. 标准服务             Service, PriceOption, TimeSlot
+8. 支付政策             PaymentPolicy（动态配置，管理员可改）  ✅
+9. 订单状态机           Order, Payment, Escrow, Payout
+10. 定制服务            CustomRequest, Bid
+11. 合同项目            Project, Contract, ContractVersion     ⭐NEW
+                        Milestone, ContractSignature          ⭐NEW
+12. PAD 协议            PADAuthorization                      ⭐NEW (≥$1,000)
+13. 通知                Notification, Subscription, SMSLog    ⭐NEW
+14. 合规                AIDecisionLog, AIUsageQuota           ⭐NEW
+                        AISemanticCache, DataDeletionRequest  ⭐NEW
+15. 管理审计            AdminLog, SystemConfig
+```
 
+**关键枚举**（完整版）：
 ```prisma
 enum OrderStatus {
-  PENDING          // 待支付
-  AUTHORIZED       // 支付授权（Stripe 冻结）
-  CAPTURED         // 已划扣（48h 后自动）
-  IN_PROGRESS      // 进行中
-  COMPLETED        // 完成
-  CANCELLED        // 已取消
-  DISPUTED         // 纠纷中
+  PENDING AUTHORIZED CRON_CAPTURING CAPTURED
+  IN_PROGRESS PENDING_SETTLEMENT COMPLETED SETTLED
+  CANCELLED CANCELLED_FORFEITED REFUNDED DISPUTED
 }
 
-enum PaymentType {
-  STRIPE           // Stripe 支付
-  TRANSFER         // 余额转账
-  CASH             // 线下现金
-}
-
-enum UserRole {
-  CUSTOMER         // 客户
-  PROVIDER         // 服务商
-  ADMIN            // 管理员
-}
+enum ContractVersionStatus { DRAFT PENDING SIGNED SUPERSEDED }
+enum PADStatus              { ACTIVE SUSPENDED REVOKED }
+enum DeletionStatus         { PENDING PROCESSING COMPLETED PARTIALLY_RETAINED }
+enum AIDecisionType         { CONTENT_RECOMMENDATION SERVICE_RANKING
+                              PRICE_SUGGESTION FRAUD_DETECTION CONTRACT_ANALYSIS }
+enum FeedType               { RSS YOUTUBE }
 ```
-
-**Gotcha**: 修改枚举时需要生成新的 Prisma Client (`npx prisma generate`)
 
 ---
 
-## 🔄 API 设计模式
+## 💳 Stripe 支付协议（锁定）
 
-### 标准 Response 格式
+### Manual Capture 状态机
+```
+PENDING ──[createPaymentIntent(capture_method="manual")]──► AUTHORIZED
+AUTHORIZED ──[T-48h Cron 自动]──────────────────────────► CAPTURED
+AUTHORIZED ──[用户取消 >T-48h]─────────────────────────► REFUNDED
+CAPTURED   ──[用户取消 <T-48h]─────────────────────────► CANCELLED_FORFEITED
+CAPTURED   ──[用户确认开始]────────────────────────────► IN_PROGRESS
+IN_PROGRESS ──[用户确认完工]───────────────────────────► PENDING_SETTLEMENT
+PENDING_SETTLEMENT ──[尾款支付]─────────────────────────► COMPLETED
+COMPLETED  ──[T+7 系统结算]────────────────────────────► SETTLED
+```
 
-**所有 API 返回统一格式**:
-
+### 48h Cron Job 核心（伪代码）
 ```typescript
-interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-  message?: string
-}
+// POST /api/cron/capture-payments  ← 每 5 分钟触发
+async function capturePaymentsCron() {
+  const lock = await redisLock(`cron:capture:${hourKey()}`)
+  if (!lock) return { skipped: true }
 
-// 示例：
-{
-  "success": true,
-  "data": {
-    "id": "user-123",
-    "email": "user@example.com"
+  const orders = await prisma.order.findMany({
+    where: { status: 'AUTHORIZED', scheduledCaptureAt: { lte: new Date() }, captureAttempts: { lt: 3 } }
+  })
+
+  for (const order of orders) {
+    const policy = await prisma.paymentPolicy.findFirst({ where: { serviceType: order.serviceType } })
+    // ^ 不硬编码 48，从 policy.autoCaptureHoursBefore 读取
+
+    await stripe.paymentIntents.capture(order.paymentIntentId)
+    await prisma.$transaction([
+      prisma.order.update({ where: { id: order.id }, data: { status: 'CAPTURED' } }),
+      prisma.escrow.create({ data: { orderId: order.id, amount: order.depositAmount, status: 'HOLDING' } }),
+      prisma.payment.create({ ... })
+    ])
   }
 }
 ```
 
-**在 `lib/types/index.ts` 中定义**
+### PAD 协议（≥ CAD $1,000）
+- 金额 < $1,000：Stripe 信用卡 Manual Capture（普通流程）
+- 金额 ≥ $1,000：PAD 授权 → 用户电子签名 → 生成 PDF → 存 Supabase Storage Canada → EFT 扣款
+- 相关模型：`PADAuthorization`
 
 ---
 
-### 路由组织规则
+## 📄 合同版本控制（复杂服务）
 
-**目录结构**:
-```
-app/api/
-├── auth/             # 认证相关
-│   └── register/
-├── services/         # 服务浏览
-├── orders/           # 订单管理
-│   └── [id]/
-│       └── confirm-payment/
-├── cron/             # 定时任务
-│   └── capture-payments/   # ⭐ 关键端点
-└── admin/            # 管理端
-    └── payment-policies/
-```
+### Diff 算法
+- **选型**：Myers Diff，行级，npm 包 `diff@^5.1.0`
+- **存储**：`ContractVersion.diffFromPrev`（JSON 序列化）
+- **格式**：`[{ type: "equal"|"delete"|"insert", lineStart, lineEnd, text }]`
 
-**Gotcha**: API 路由文件名必须是 `route.ts`，不能是 `index.ts`
+### 签名流程
+```
+A 提交新版本 → status=DRAFT
+→ 系统生成 Diff → status=PENDING（通知对方）
+→ 对方签名 ContractSignature → status=SIGNED
+→ 旧版本 → status=SUPERSEDED
+```
 
 ---
 
-### Cron Job 实现
+## 🧠 AI 成本控制（强制）
 
-**48h 自动划扣关键逻辑**:
+### 分层调用策略
+| Tier | 任务 | 模型 | 预算 |
+|------|------|------|------|
+| 1 (边缘) | 分类、摘要 | gpt-4o-mini / claude-3-haiku | < $0.001/call |
+| 2 (核心) | 合同分析、推荐 | claude-3.5-sonnet | < $0.05/call |
+| 2+ (高级) | 超复杂分析 | claude-opus / gpt-4o | **需 CPO 批准** |
+
+### 语义缓存（Upstash Redis）
+```typescript
+const cacheKey = sha256(normalizePrompt(prompt))
+const cached = await redis.get(cacheKey)
+if (cached) return JSON.parse(cached)
+
+const result = await callAI(prompt)
+await redis.setex(cacheKey, 3600, JSON.stringify(result)) // TTL=1h
+```
+
+### Token 配额
+- 每用户每日上限：50,000 tokens（可在管理端调整）
+- 超限返回 `429 Too Many Requests`
+- 模型：`AIUsageQuota`（按 `[userId, date]` 唯一约束）
+
+---
+
+## 🗺️ LBS 实现（Geohash）
 
 ```typescript
-// POST /api/cron/capture-payments
-// 1. 找出所有 status=AUTHORIZED 且 scheduledCaptureAt <= now 的订单
-// 2. 调用 stripe.paymentIntents.confirm(paymentIntentId)
-// 3. 更新订单 status=CAPTURED
-// 4. 创建 Escrow 记录
-// 5. 记录 Payment 日志
-// 6. 转账到 ServiceProvider.availableBalance
+// 写入帖子时计算 Geohash
+import geohash from 'ngeohash'
+const hash = geohash.encode(latitude, longitude, 7) // 精度 ~150m
 
-// 设置 Cron Job 每 5 分钟执行一次 (在 server startup 时)
+// 半径检索（5km）
+const nearbyHashes = geohash.neighbors(centerHash) // 9 个邻居格
+await prisma.postGeoTag.findMany({
+  where: { geohash: { in: nearbyHashes } }
+})
 ```
 
-**Gotcha**: Cron Job 需要幂等性（同一订单多次执行不能重复划扣）
+**Gotcha**：Geohash 精度级别 7 对应约 150m，搜 5km 半径时取中心格 + 8 个邻居格（共 9 个）即可覆盖
 
 ---
 
-## 🎨 UI/UX 开发规范
+## 🌐 API 路由全量（v2）
 
-### 组件库位置
-
-**位置**: `components/` 目录
-
-**已实现** (8 个组件):
-- `Navbar.tsx` - 底部导航 (mobile)
-- `Button.tsx` - 按钮组件
-- `Input.tsx` / `Textarea.tsx` - 表单输入
-- `Card.tsx` / `StatsCard.tsx` - 卡片组件
-- `ArticleCard.tsx` - 文章卡片
-- `ServiceCard.tsx` - 服务卡片
-
-**命名规则**: PascalCase，导出命名导出
+```
+/api/auth/        register POST ✅ | login POST | logout POST | refresh POST
+/api/feed/        sources CRUD | articles GET ✅ | personalized GET
+/api/forum/       posts GET/POST ✅ | posts/[id]/like POST | comments POST
+/api/services/    GET/POST ✅ | [id] GET | [id]/time-slots GET
+/api/orders/      GET/POST ✅ | [id]/confirm-payment POST ✅
+                  [id]/cancel POST | [id]/start POST | [id]/complete POST
+/api/custom/      requests POST | requests/[id]/bids GET/POST | bids/[id]/accept POST
+/api/contracts/   [id] GET | [id]/versions GET/POST | [id]/sign POST
+/api/cron/        capture-payments POST ✅ | settle-completed POST | crawl-feeds POST
+/api/admin/       payment-policies GET/POST ✅ | feed-sources CRUD
+                  users GET | disputes GET/POST
+/api/my/          ai-decisions GET | data-deletion POST  ← CPPA 合规端点
+```
 
 ---
 
-### 全局样式与主题
+## 🎨 UI 规范
 
-**CSS 变量系统** (在 `app/globals.css`):
+### 组件库（Tailwind CSS + Shadcn UI）
+位置：`components/`，命名：PascalCase
+
+**已实现**：Navbar, Button, Input, Textarea, Card, StatsCard, ArticleCard, ServiceCard
+
+### AODA 必用模式
+```tsx
+// ✅ 跳过导航
+<a href="#main-content" className="sr-only focus:not-sr-only">跳到主要内容</a>
+
+// ✅ 屏幕阅读器只读文字
+<span className="sr-only">4.9 out of 5 stars</span>
+
+// ✅ 聚焦环（不用 outline-none）
+className="focus-visible:ring-2 focus-visible:ring-primary"
+
+// ✅ 动态内容通知
+<div aria-live="polite" aria-atomic="true" id="status-announcer" />
+```
+
+### CSS 变量（不要硬编码颜色）
 ```css
-:root {
-  --color-primary: #3b82f6;
-  --color-secondary: #8b5cf6;
-  --color-danger: #ef4444;
-  /* ... */
-}
-
-[data-theme="dark"] {
-  --color-primary: #60a5fa;
-  /* ... */
-}
+:root { --color-primary: #2563eb; --color-danger: #dc2626; }
+[data-theme="dark"] { --color-primary: #60a5fa; }
+[prefers-contrast: high] { --color-primary: #1d4ed8; }
 ```
-
-**Tailwind 扩展** (在 `tailwind.config.ts`):
-```typescript
-theme: {
-  extend: {
-    colors: {
-      primary: 'var(--color-primary)',
-      // ...
-    },
-  },
-}
-```
-
-**Gotcha**: 不要在组件内硬编码颜色，使用 CSS 变量
 
 ---
 
-### 页面结构
+## 🔐 安全规范
 
-**布局嵌套**:
-```
-app/
-├── layout.tsx                    # 根布局
-├── (app)/
-│   ├── layout.tsx               # App 布局 (含 Navbar)
-│   ├── page.tsx                 # Feed 首页
-│   ├── services/
-│   │   └── page.tsx             # 服务列表
-│   └── ...
-└── admin/
-    ├── layout.tsx               # Admin 布局 (含侧边栏)
-    ├── page.tsx                 # Admin 仪表板
-    ├── payment-policies/
-    │   └── page.tsx             # 支付政策管理
-    └── ...
-```
-
-**Gotcha**: `layout.tsx` 是嵌套路由的根，路由组 `(app)` 不会添加到 URL 路径
+- 密码加密：`bcryptjs`，cost factor 10
+- 环境变量：`.env` 不提交 git（只提交 `.env.example`）
+- Supabase RLS：所有表强制启用行级安全策略
+- Passkeys：`SimpleWebAuthn`（数据不出境）
+- MFA：TOTP，secret 加密存储（`@pii:CREDENTIAL`）
 
 ---
 
-## 📝 文档体系
-
-**11 份文档** (优先级顺序):
-
-1. **START_HERE.txt** - 5 步快速启动 ⭐ 首先看这个
-2. **TROUBLESHOOTING.md** - 常见错误诊断
-3. **TEST_READY.md** - 项目完整说明
-4. **LOCAL_TESTING.md** - 完整测试指南
-5. **QUICK_REFERENCE.txt** - 命令速查表
-6. **README.md** - 项目概览
-7. **TESTING_SUMMARY.md** - 测试成果
-8. **IMPLEMENTATION_SUMMARY.md** - 实现细节
-9. **QUICK_START.md** - 快速启动
-10. **PROJECT_STATUS.md** - 项目状态
-11. **CLAUDE.md** - 本文档
-
-**Gotcha**: 文档会作为 git 提交的一部分，务必保持最新
-
----
-
-## 🔧 常用命令速查
+## 🔧 常用命令
 
 ```bash
 # 开发
-npm run dev                  # 启动开发服务器 (localhost:3000)
-npm run build               # 生产构建
+npm run dev                     # localhost:3000
+npm run build && npm run start  # 生产预览
 
 # 数据库
-npm run db:push             # 同步 Prisma Schema
-npm run db:migrate          # 创建迁移
-npm run db:studio           # 打开可视化界面 (localhost:5555)
-npm run db:seed             # 执行种子脚本
+npm run db:push                 # 同步 Schema（开发用）
+npm run db:migrate              # 生成迁移文件（生产用）
+npm run db:studio               # localhost:5555
+npm run db:seed                 # 种子数据
 
 # 代码质量
-npm run lint                # ESLint 检查
-npx prisma generate         # 重新生成 Prisma Client
+npm run lint
+npx prisma generate             # 修改 Schema 后必须执行
 
-# Docker
-docker-compose up -d        # 启动 PostgreSQL
-docker-compose down         # 停止容器
-docker-compose logs postgres # 查看 PostgreSQL 日志
-docker-compose ps           # 查看容器状态
+# Docker（本地开发）
+docker-compose up -d
+docker-compose logs -f postgres
+docker-compose down -v          # ⚠️ 删除所有数据
 ```
 
 ---
 
-## 🐛 常见错误与解决方案
+## 🐛 常见错误速查
 
-| 错误 | 原因 | 解决方案 |
-|------|------|---------|
-| `Can't reach database server` | PostgreSQL 未运行 | `docker-compose up -d` |
-| `MODULE_NOT_FOUND: seed.js` | Seed 文件格式错误 | 使用 ts-node 运行 (已配置) |
-| `next.config.ts not supported` | 配置文件格式错误 | 使用 `next.config.js` (已修复) |
-| `Decimal not supported` | SQLite 限制 | 必须使用 PostgreSQL |
-| `Peer dependency conflicts` | npm 版本管理 | 添加 `--legacy-peer-deps` |
-| `EACCES: permission denied` | Prisma Client 权限 | `npx prisma generate` |
-| `Port already in use` | 端口被占用 | `lsof -ti:3000 \| xargs kill -9` |
-
----
-
-## 🔐 安全性与最佳实践
-
-### 环境变量
-
-- ✅ **提交到 git**: `.env.example` (模板)
-- ❌ **不提交**: `.env`, `.env.local` (含密钥)
-- ✅ **在 Vercel 中**: 通过 UI 或 CLI 配置
-
-**检查 `.gitignore`**:
-```
-.env
-.env.local
-.env.*.local
-```
+| 错误信息 | 解决方案 |
+|---------|---------|
+| `Can't reach database server` | `docker-compose up -d` |
+| `MODULE_NOT_FOUND: seed.js` | 已配 ts-node，直接 `npm run db:seed` |
+| `next.config.ts not supported` | 用 `next.config.js`（已修复） |
+| `Decimal not supported` | 必须用 PostgreSQL，不能用 SQLite |
+| `Peer dependency conflicts` | `npm install --legacy-peer-deps` |
+| `EACCES prisma client` | `npx prisma generate` |
+| `Port already in use` | `lsof -ti:3000 \| xargs kill -9` |
+| `RLS policy violation` | 检查 Supabase RLS 策略是否允许当前 role |
 
 ---
 
-### 密码加密
-
-**库**: `bcryptjs@^2.4.3`
-
-**使用示例** (在 seed.ts 中):
-```typescript
-import bcrypt from 'bcryptjs'
-
-const hashedPassword = await bcrypt.hash(password, 10)
-```
-
-**Gotcha**: 不要明文存储密码
-
----
-
-### Stripe 集成
-
-**Manual Capture 流程**:
-1. 创建 PaymentIntent (不立即扣款)
-2. 用户完成前端支付
-3. 调用 `paymentIntents.confirm()` 进行划扣
-4. 状态转为 `CAPTURED`
-
-**相关文件**: `app/api/orders/route.ts`, `app/api/cron/capture-payments/route.ts`
-
----
-
-## 📊 项目统计
+## 📊 项目状态
 
 | 指标 | 数值 |
 |------|------|
-| 总文件数 | 40+ |
-| 代码行数 | 5000+ |
-| 数据模型 | 60+ |
-| API 端点 | 10 |
+| 总文件 | 40+ |
+| 代码行数 | 5,000+ |
+| Prisma 模型 | 70+（v2 含合规模型） |
+| API 端点（已实现） | 10 |
+| API 端点（待实现） | 20+ |
 | React 组件 | 8 |
-| 文档 | 11 |
-| Git commits | 7 |
-| 完成度 | 95% (MVP) |
+| Git commits | 8 |
 
 ---
 
-## 🎯 下一步开发任务
+## 📋 WBS 进度（Phase 追踪）
 
-### 高优先级
-- [ ] 实现剩余 API (简单定制、复杂定制)
-- [ ] 完整的单元测试 (jest)
-- [ ] 合同版本控制 (Diff 算法)
-- [ ] E2E 测试 (Playwright)
-
-### 中优先级
-- [ ] Email 通知 (SendGrid)
-- [ ] 推送通知 (Firebase)
-- [ ] RSS 爬虫 (定时任务)
-- [ ] 多语言支持 (i18n)
-
-### 低优先级
-- [ ] CDN 集成 (图片优化)
-- [ ] 性能监控 (Sentry)
-- [ ] Analytics (Mixpanel)
-
----
-
-## 📞 调试技巧
-
-### 查看实时日志
-
-```bash
-# 终端 1: 应用日志
-npm run dev 2>&1 | tee app.log
-
-# 终端 2: 数据库日志
-docker-compose logs -f postgres
-
-# 终端 3: 网络请求
-# 打开浏览器 DevTools > Network 标签
-```
-
-### 检查数据库状态
-
-```bash
-# 打开 Prisma Studio
-npm run db:studio
-
-# 或用 psql 直接查询
-docker-compose exec postgres psql -U youfujia_user -d youfujia
-```
-
-### 重置开发环境
-
-```bash
-# ⚠️ 删除所有数据！
-docker-compose down -v
-docker-compose up -d
-npm run db:push
-npm run db:seed
-npm run dev
-```
-
----
-
-## 🤖 与 Claude 协作的最佳实践
-
-### 清晰的需求表述
-
-✅ **好**: "创建一个 API 端点来查询用户的订单列表，支持分页和按状态过滤"
-❌ **差**: "做一个订单 API"
-
-### 提供上下文
-
-✅ **包含**: 数据模型、关键字段、返回格式
-❌ **缺少**: 业务逻辑、状态机、错误处理
-
-### 代码审查检查清单
-
-- [ ] API 返回统一的 Response 格式
-- [ ] 所有 async 函数有错误处理
-- [ ] TypeScript 类型完整 (no `any`)
-- [ ] 数据库操作使用 Prisma ORM
-- [ ] 敏感数据已脱敏 (密钥、密码等)
-
----
-
-## 📌 重要链接
-
-- **GitHub**: `https://github.com/joelyan/youfujia` (未创建)
-- **Stripe 文档**: `https://stripe.com/docs/payments/accept-card-payments`
-- **Prisma 文档**: `https://www.prisma.io/docs/`
-- **Next.js 文档**: `https://nextjs.org/docs`
-- **Tailwind CSS**: `https://tailwindcss.com/docs`
+- [ ] **Phase 1**: 基础设施重构（Schema v2 + Supabase Canada + Redis + Passkeys）
+- [ ] **Phase 2**: 支付状态机（Stripe + 48h Cron + PAD + 单测）
+- [ ] **Phase 3**: 服务交易体系（标准→定制→合同 Diff）
+- [ ] **Phase 4**: AI-News Feed（爬虫 + 分层 AI + 缓存 + 配额）
+- [ ] **Phase 5**: 社区论坛（Geohash LBS）
+- [ ] **Phase 6**: 合规（被遗忘权 + AI 透明度 + AODA 审计）
+- [ ] **Phase 7**: PWA（Service Workers + Web Push）
+- [ ] **Phase 8**: QA（状态机 100% 单测 + 合同 Diff 测试）
 
 ---
 
 ## 📋 维护日志
 
-| 日期 | 更新内容 |
-|------|---------|
-| 2026-02-25 | 初始创建：记录 MVP 开发中的关键决策、Gotchas 和最佳实践 |
-| | 添加 7 个常见错误与解决方案 |
-| | 详细记录 Stripe Manual Capture、Cron Job、状态机实现 |
-| | 列出 11 份项目文档和下一步任务 |
-
----
-
-**祝开发顺利！** 🚀
-
-本文档会随着项目发展持续更新。如有补充或修正，请提交 PR。
+| 日期 | 更新 |
+|------|------|
+| 2026-02-25 v1.0 | 初始创建，记录 MVP Gotchas |
+| 2026-02-25 v2.0 | 宪章 v2 全量对齐：加拿大合规、PAD、Passkeys、Geohash、AI 成本、AODA、合同 Diff、WBS |
