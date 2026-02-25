@@ -219,6 +219,7 @@ model ServiceCategory {
   id           String   @id @default(cuid())
   name         String   @unique
   nameEn       String?
+  slug         String   @unique @default(cuid()) // URL-safe slug, e.g. "cleaning"
   description  String?
   icon         String?
   color        String?
@@ -231,8 +232,10 @@ model ServiceCategory {
   serviceProviders       ServiceProviderCategory[]
   customServiceTemplates CustomServiceTemplate[]
   paymentPolicies        PaymentPolicy[]
+  formFields             FormField[]
 
   @@index([isActive])
+  @@index([slug])
   @@map("service_categories")
 }
 
@@ -570,6 +573,37 @@ model CustomFormField {
   displayOrder Int            @default(0)
 
   @@map("custom_form_fields")
+}
+
+// 动态表单字段（管理员后台配置，直接关联 ServiceCategory，扁平结构）
+enum FormFieldType {
+  text
+  textarea
+  number
+  select
+  multiselect
+  chips
+  multichips
+  date
+}
+
+model FormField {
+  id           String          @id @default(cuid())
+  categoryId   String
+  category     ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  fieldType    FormFieldType
+  fieldKey     String          // 表单数据 key，如 "room_count"
+  label        String          // 显示标签，如 "房间数量"
+  placeholder  String?
+  required     Boolean         @default(false)
+  optionsJson  String?         // JSON array of strings，用于 select/chips 等
+  displayOrder Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([categoryId, fieldKey])
+  @@index([categoryId])
+  @@map("form_fields")
 }
 
 model CustomRequest {

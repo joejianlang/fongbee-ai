@@ -11,6 +11,7 @@ import {
   Users,
   BarChart3,
   Settings,
+  FormInput,
   Menu,
   X,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ const menuItems = [
   { href: '/admin/orders', label: '订单管理', icon: Package },
   { href: '/admin/custom-requests', label: '定制需求', icon: List },
   { href: '/admin/payment-policies', label: '支付政策', icon: FileText },
+  { href: '/admin/form-builder', label: '表单构建器', icon: FormInput },
   { href: '/admin/users', label: '用户管理', icon: Users },
   { href: '/admin/finance', label: '财务报表', icon: BarChart3 },
   { href: '/admin/settings', label: '系统设置', icon: Settings },

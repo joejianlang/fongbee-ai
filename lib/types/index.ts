@@ -165,7 +165,53 @@ export interface ArticleDetail {
   likeCount: number;
 }
 
-// Payment Policy Types
+// ─── Dynamic Form Builder Types ───────────────────────────────────────────────
+
+export type FormFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'multiselect'
+  | 'chips'
+  | 'multichips'
+  | 'date';
+
+export interface FormFieldDef {
+  id: string;
+  categoryId: string;
+  fieldType: FormFieldType;
+  fieldKey: string;
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];    // parsed from optionsJson
+  displayOrder: number;
+}
+
+export interface FormTemplateDef {
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+  categoryIcon?: string;
+  categoryColor?: string;
+  fields: FormFieldDef[];
+}
+
+export interface ServiceCategoryDef {
+  id: string;
+  name: string;
+  nameEn?: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  displayOrder: number;
+  isActive: boolean;
+  _count?: { formFields: number };
+}
+
+// ─── Payment Policy Types ──────────────────────────────────────────────────
 export interface PaymentPolicyDetail {
   id: string;
   serviceType: string;
