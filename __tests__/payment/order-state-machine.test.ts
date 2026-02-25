@@ -83,7 +83,7 @@ function makeRequest(
   body?: object,
   headers?: Record<string, string>
 ): NextRequest {
-  const init: RequestInit = {
+  const init = {
     method,
     headers: {
       'Content-Type': 'application/json',
