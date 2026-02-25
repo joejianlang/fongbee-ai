@@ -12,12 +12,14 @@ import {
   BarChart3,
   Settings,
   FormInput,
+  Layers,
   Menu,
   X,
 } from 'lucide-react';
 
 const menuItems = [
   { href: '/admin', label: '控制台', icon: LayoutDashboard },
+  { href: '/admin/service-categories', label: '服务分类管理', icon: Layers },
   { href: '/admin/orders', label: '订单管理', icon: Package },
   { href: '/admin/custom-requests', label: '定制需求', icon: List },
   { href: '/admin/payment-policies', label: '支付政策', icon: FileText },
