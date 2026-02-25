@@ -1,0 +1,48 @@
+{
+  "name": "youfujia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "优服佳 - 本地服务与 AI-News Feed 集成平台",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "next": "^15.0.0",
+    "@prisma/client": "^5.20.0",
+    "@stripe/stripe-js": "^4.7.0",
+    "stripe": "^15.0.0",
+    "next-auth": "^5.0.0",
+    "lucide-react": "^0.397.0",
+    "axios": "^1.7.0",
+    "zod": "^3.23.0",
+    "node-cron": "^3.0.0",
+    "firebase-admin": "^12.0.0",
+    "pino": "^8.16.0",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "^15.0.0",
+    "prisma": "^5.20.0",
+    "jest": "^29.7.0",
+    "@testing-library/react": "^14.1.0",
+    "@testing-library/jest-dom": "^6.1.5"
+  }
+}

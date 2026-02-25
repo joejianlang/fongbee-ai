@@ -1,0 +1,1073 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. User & Auth Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  phone                 String?   @unique
+  password              String?
+  firstName             String?
+  lastName              String?
+  avatar                String?
+  bio                   String?
+  role                  UserRole  @default(CUSTOMER)
+  status                UserStatus @default(ACTIVE)
+
+  // Geolocation
+  latitude              Float?
+  longitude             Float?
+  city                  String?
+  country               String?   @default("Canada")
+  addressLine1          String?
+  addressLine2          String?
+  zipCode               String?
+
+  // Profile
+  isProfileComplete     Boolean   @default(false)
+  profileCompletedAt    DateTime?
+
+  // Timestamps
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  lastLoginAt           DateTime?
+
+  // Relations
+  serviceProvider       ServiceProvider?
+  orders                Order[]
+  posts                 Post[]
+  comments              Comment[]
+  userInterests         UserInterest[]
+  notifications         Notification[]
+  reviews               Review[]
+  bids                  Bid[]
+  customRequests        CustomRequest[]
+  projects              Project[]
+  adminLogs             AdminLog[]
+  userInteractions      UserArticleInteraction[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([city])
+  @@map("users")
+}
+
+enum UserRole {
+  CUSTOMER
+  SERVICE_PROVIDER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model AuthToken {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token             String    @unique
+  type              TokenType
+  expiresAt         DateTime
+  usedAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@map("auth_tokens")
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  OAUTH
+  REFRESH
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. Service Provider & Reviews
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ServiceProvider {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Business Info
+  businessName          String
+  businessLicense       String?
+  licenseExpiryDate     DateTime?
+  businessPhone         String?
+  businessEmail         String?
+  businessWebsite       String?
+
+  // Service Categories
+  serviceCategories     ServiceProviderCategory[]
+
+  // Verification
+  isVerified            Boolean   @default(false)
+  verificationDate      DateTime?
+  verificationNotes     String?
+
+  // Rating
+  averageRating         Float     @default(5.0)
+  totalReviews          Int       @default(0)
+
+  // Bank Account
+  bankAccountOwner      String?
+  bankAccountNumber     String?   // Encrypted
+  bankRoutingNumber     String?   // Encrypted
+  bankVerifiedAt        DateTime?
+
+  // Stripe
+  stripeAccountId       String?   @unique
+  stripeOnboardingUrl   String?
+  stripeVerified        Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  services              Service[]
+  orders                Order[]
+  reviews               Review[]
+  bids                  Bid[]
+  projects              Project[]
+  milestones            Milestone[]
+
+  @@index([userId])
+  @@index([isVerified])
+  @@map("service_providers")
+}
+
+model ServiceProviderCategory {
+  id                    String    @id @default(cuid())
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  categoryId            String
+  category              ServiceCategory @relation(fields: [categoryId], references: [id])
+  createdAt             DateTime  @default(now())
+
+  @@unique([serviceProviderId, categoryId])
+  @@map("service_provider_categories")
+}
+
+model Review {
+  id                    String    @id @default(cuid())
+  orderId               String    @unique
+  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  fromUserId            String
+  fromUser              User      @relation(fields: [fromUserId], references: [id])
+
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+
+  rating                Int       // 1-5
+  comment               String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([orderId])
+  @@index([serviceProviderId])
+  @@index([fromUserId])
+  @@map("reviews")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. Service & Category Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ServiceCategory {
+  id                    String    @id @default(cuid())
+  name                  String    @unique
+  nameEn                String?
+  description           String?
+  icon                  String?
+  color                 String?
+  displayOrder          Int       @default(0)
+  isActive              Boolean   @default(true)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  services              Service[]
+  serviceProviders      ServiceProviderCategory[]
+  customServiceTemplates CustomServiceTemplate[]
+  paymentPolicies       PaymentPolicy[]
+
+  @@index([isActive])
+  @@map("service_categories")
+}
+
+model Service {
+  id                    String    @id @default(cuid())
+  categoryId            String
+  category              ServiceCategory @relation(fields: [categoryId], references: [id])
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+
+  // Service Info
+  title                 String
+  description           String
+  shortDescription      String?
+
+  // Pricing
+  basePrice             Decimal   @db.Decimal(10, 2)
+  priceUnit             String    // "hour" | "day" | "project" | "item"
+  priceOptions          ServicePriceOption[]
+
+  // Media
+  images                String[]  @default([])
+
+  // Availability
+  isAvailable           Boolean   @default(true)
+  availableDaysOfWeek   String[]  @default([])
+  timeSlots             ServiceTimeSlot[]
+
+  // Settings
+  minBookingHours       Int       @default(1)
+  maxBookingHours       Int       @default(8)
+  cancellationPolicy    String?
+
+  // Geolocation
+  serviceArea           String?
+  geoLatitude           Float?
+  geoLongitude          Float?
+  geoRadius             Int       @default(25)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  orders                Order[]
+
+  @@index([serviceProviderId])
+  @@index([categoryId])
+  @@index([isAvailable])
+  @@map("services")
+}
+
+model ServicePriceOption {
+  id                    String    @id @default(cuid())
+  serviceId             String
+  service               Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  name                  String
+  price                 Decimal   @db.Decimal(10, 2)
+  description           String?
+  displayOrder          Int       @default(0)
+
+  createdAt             DateTime  @default(now())
+
+  @@map("service_price_options")
+}
+
+model ServiceTimeSlot {
+  id                    String    @id @default(cuid())
+  serviceId             String
+  service               Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  dayOfWeek             Int       // 0-6
+  startTime             String    // "09:00"
+  endTime               String    // "17:00"
+  isBooked              Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([serviceId, dayOfWeek, startTime])
+  @@map("service_time_slots")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4. Payment & Financial Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model PaymentPolicy {
+  id                    String    @id @default(cuid())
+  serviceType           String    // "standard" | "simple_custom" | "complex_custom"
+  serviceCategoryId     String?
+  category              ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
+
+  autoCaptureHoursBefore Int
+  isAutoCaptureEnabled  Boolean   @default(true)
+
+  cancellationCutoffHours Int
+  forfeitturePercentage Int
+
+  depositPercentage     Int?
+  refundDays            Int       @default(7)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  createdBy             String
+
+  @@unique([serviceType, serviceCategoryId])
+  @@index([serviceType])
+  @@map("payment_policies")
+}
+
+model Order {
+  id                    String    @id @default(cuid())
+  orderNumber           String    @unique
+
+  serviceType           String    // "standard" | "simple_custom" | "complex_custom"
+  serviceId             String?
+  service               Service?  @relation(fields: [serviceId], references: [id])
+  customRequestId       String?
+  customRequest         CustomRequest? @relation(fields: [customRequestId], references: [id])
+  projectId             String?
+  project               Project?  @relation(fields: [projectId], references: [id])
+
+  customerId            String
+  customer              User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id])
+
+  status                OrderStatus @default(PENDING)
+
+  paymentPolicyId       String
+  paymentPolicy         PaymentPolicy @relation(fields: [paymentPolicyId], references: [id])
+
+  totalAmount           Decimal   @db.Decimal(10, 2)
+  depositAmount         Decimal   @db.Decimal(10, 2) @default(0)
+  remainingAmount       Decimal   @db.Decimal(10, 2)
+
+  stripeIntentId        String?   @unique
+  stripeIntentStatus    String?
+
+  authorizedAt          DateTime?
+  scheduledCaptureAt    DateTime?
+  actualCapturedAt      DateTime?
+  completedAt           DateTime?
+  settledAt             DateTime?
+
+  scheduledStartTime    DateTime
+  scheduledEndTime      DateTime
+  actualStartTime       DateTime?
+  actualEndTime         DateTime?
+
+  serviceAddress        String?
+  serviceNotes          String?
+
+  cancelledAt           DateTime?
+  cancelledBy           String?
+  cancellationReason    String?
+  forfeittedAmount      Decimal   @db.Decimal(10, 2) @default(0)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  payments              Payment[]
+  review                Review?
+
+  @@index([customerId])
+  @@index([serviceProviderId])
+  @@index([status])
+  @@index([scheduledStartTime])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  IN_PROGRESS
+  COMPLETED
+  SETTLED
+  CANCELLED
+}
+
+model Payment {
+  id                    String    @id @default(cuid())
+  orderId               String
+  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  type                  PaymentType
+  amount                Decimal   @db.Decimal(10, 2)
+  currency              String    @default("CAD")
+
+  stripeTransactionId   String?   @unique
+  stripePaymentMethodId String?
+  stripeStatus          String?
+
+  escrowedAt            DateTime?
+  transferredAt         DateTime?
+
+  errorMessage          String?
+  errorCode             String?
+  retryCount            Int       @default(0)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([orderId])
+  @@index([type])
+  @@map("payments")
+}
+
+enum PaymentType {
+  AUTHORIZE
+  CAPTURE
+  REFUND
+  TRANSFER
+}
+
+model Escrow {
+  id                    String    @id @default(cuid())
+  orderId               String    @unique
+  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  amount                Decimal   @db.Decimal(10, 2)
+  currency              String    @default("CAD")
+
+  status                EscrowStatus @default(HELD)
+  releasedAt            DateTime?
+  releasedTo            String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([status])
+  @@map("escrows")
+}
+
+enum EscrowStatus {
+  HELD
+  RELEASED_TO_PROVIDER
+  REFUNDED_TO_CUSTOMER
+}
+
+model Payout {
+  id                    String    @id @default(cuid())
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+
+  amount                Decimal   @db.Decimal(10, 2)
+  currency              String    @default("CAD")
+  period                String    // "2026-02"
+
+  status                PayoutStatus @default(PENDING)
+  stripePayoutId        String?   @unique
+
+  createdAt             DateTime  @default(now())
+  paidAt                DateTime?
+
+  @@index([serviceProviderId])
+  @@index([status])
+  @@map("payouts")
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. Custom Service Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model CustomServiceTemplate {
+  id                    String    @id @default(cuid())
+  categoryId            String?
+  category              ServiceCategory? @relation(fields: [categoryId], references: [id])
+
+  name                  String
+  description           String?
+  color                 String?
+  displayOrder          Int       @default(0)
+
+  steps                 CustomFormStep[]
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("custom_service_templates")
+}
+
+model CustomFormStep {
+  id                    String    @id @default(cuid())
+  templateId            String
+  template              CustomServiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  stepNumber            Int
+  title                 String
+  description           String?
+
+  fields                CustomFormField[]
+
+  @@unique([templateId, stepNumber])
+  @@map("custom_form_steps")
+}
+
+model CustomFormField {
+  id                    String    @id @default(cuid())
+  stepId                String
+  step                  CustomFormStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  fieldType             String
+  fieldKey              String
+  label                 String
+  placeholder           String?
+  required              Boolean   @default(false)
+
+  options               String[]  @default([])
+
+  displayOrder          Int       @default(0)
+
+  @@map("custom_form_fields")
+}
+
+model CustomRequest {
+  id                    String    @id @default(cuid())
+  requestNumber         String    @unique
+
+  customerId            String
+  customer              User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  templateId            String
+  template              CustomServiceTemplate @relation(fields: [templateId], references: [id])
+
+  formResponses         Json
+
+  isDirected            Boolean   @default(false)
+  directedTo            String[]  @default([])
+  isOpenToAll           Boolean   @default(true)
+
+  status                CustomRequestStatus @default(OPEN)
+  selectedBidId         String?
+  selectedBid           Bid?      @relation("SelectedBid", fields: [selectedBidId], references: [id])
+
+  biddingDeadline       DateTime?
+
+  paymentPolicyId       String?
+  paymentPolicy         PaymentPolicy? @relation(fields: [paymentPolicyId], references: [id])
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  bids                  Bid[]     @relation("RequestBids")
+  orders                Order[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("custom_requests")
+}
+
+enum CustomRequestStatus {
+  OPEN
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Bid {
+  id                    String    @id @default(cuid())
+  customRequestId       String
+  customRequest         CustomRequest @relation("RequestBids", fields: [customRequestId], references: [id], onDelete: Cascade)
+
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+
+  amount                Decimal   @db.Decimal(10, 2)
+  estimatedDuration     String?
+  proposal              String?
+
+  status                BidStatus @default(OPEN)
+
+  acceptedAt            DateTime?
+  rejectedAt            DateTime?
+  rejectionReason       String?
+
+  isSelected            Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  selectedRequest       CustomRequest? @relation("SelectedBid")
+
+  @@unique([customRequestId, serviceProviderId])
+  @@index([customRequestId])
+  @@index([serviceProviderId])
+  @@index([status])
+  @@map("bids")
+}
+
+enum BidStatus {
+  OPEN
+  ACCEPTED
+  REJECTED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. Complex Service Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Project {
+  id                    String    @id @default(cuid())
+  projectNumber         String    @unique
+
+  customerId            String
+  customer              User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  serviceProviderId     String
+  serviceProvider       ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+
+  title                 String
+  description           String
+  scope                 String?
+
+  location              String
+  latitude              Float?
+  longitude             Float?
+
+  estimatedStartDate    DateTime
+  estimatedEndDate      DateTime
+  actualStartDate       DateTime?
+  actualEndDate         DateTime?
+
+  currentContractId     String?
+  currentContract       Contract? @relation(fields: [currentContractId], references: [id])
+
+  status                ProjectStatus @default(DRAFT)
+
+  milestones            Milestone[]
+
+  totalProjectValue     Decimal   @db.Decimal(10, 2)
+  paymentPolicy         PaymentPolicy? @relation(fields: [paymentPolicyId], references: [id])
+  paymentPolicyId       String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  contracts             Contract[]
+
+  @@index([customerId])
+  @@index([serviceProviderId])
+  @@index([status])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Contract {
+  id                    String    @id @default(cuid())
+  projectId             String
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  versionNumber         Int       @default(1)
+
+  title                 String
+  content               String
+
+  status                ContractStatus @default(DRAFT)
+  customerSignedAt      DateTime?
+  providerSignedAt      DateTime?
+  adminApprovedAt       DateTime?
+
+  parentVersionId       String?
+  parentVersion         Contract? @relation("VersionHistory", fields: [parentVersionId], references: [id])
+  childVersions         Contract[] @relation("VersionHistory")
+
+  diffFromPrevious      String?
+  changesSummary        String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  createdBy             String
+
+  @@unique([projectId, versionNumber])
+  @@index([projectId])
+  @@index([status])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  DRAFT
+  CUSTOMER_REVIEW
+  PROVIDER_REVIEW
+  SIGNED
+  COMPLETED
+  TERMINATED
+}
+
+model Milestone {
+  id                    String    @id @default(cuid())
+  projectId             String
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestoneNumber       Int
+  title                 String
+  description           String?
+
+  startDate             DateTime
+  endDate               DateTime
+  actualStartDate       DateTime?
+  actualEndDate         DateTime?
+
+  deliverables          String?
+
+  amount                Decimal   @db.Decimal(10, 2)
+  depositPercentage     Int?
+  paymentStatus         MilestonePaymentStatus @default(PENDING)
+
+  status                MilestoneStatus @default(PENDING)
+
+  orderId               String?
+  order                 Order?    @relation(fields: [orderId], references: [id])
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([projectId, milestoneNumber])
+  @@index([projectId])
+  @@map("milestones")
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum MilestonePaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  RELEASED
+  REFUNDED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Community Forum Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Post {
+  id                    String    @id @default(cuid())
+
+  authorId              String
+  author                User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  title                 String?
+  content               String
+
+  geoTag                String
+  latitude              Float?
+  longitude             Float?
+  geoRadius             Int       @default(25)
+
+  likeCount             Int       @default(0)
+  commentCount          Int       @default(0)
+
+  isApproved            Boolean   @default(true)
+  isPinned              Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  comments              Comment[]
+
+  @@index([authorId])
+  @@index([geoTag])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model Comment {
+  id                    String    @id @default(cuid())
+  postId                String
+  post                  Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId              String
+  author                User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content               String
+
+  likeCount             Int       @default(0)
+
+  isApproved            Boolean   @default(true)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. AI-News Feed Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Article {
+  id                    String    @id @default(cuid())
+
+  sourceType            String    // "rss" | "youtube"
+  sourceId              String?
+  externalId            String?   @unique
+
+  title                 String
+  originalTitle         String?
+  content               String
+  summary               String?
+  summaryZh             String?
+
+  author                String?
+  imageUrl              String?
+  sourceUrl             String    @unique
+  publishedAt           DateTime
+
+  isTranslated          Boolean   @default(false)
+  translatedContent     String?
+  sentimentScore        Float?
+  sentiment             String?
+
+  tags                  ArticleTag[]
+  categories            String[]  @default([])
+
+  likeCount             Int       @default(0)
+  shareCount            Int       @default(0)
+  viewCount             Int       @default(0)
+
+  isActive              Boolean   @default(true)
+  isFeatured            Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  userInteractions      UserArticleInteraction[]
+
+  @@index([sourceType])
+  @@index([publishedAt])
+  @@index([isActive])
+  @@map("articles")
+}
+
+model ArticleTag {
+  id                    String    @id @default(cuid())
+  articleId             String
+  article               Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  tag                   String
+  confidence            Float?
+
+  createdAt             DateTime  @default(now())
+
+  @@unique([articleId, tag])
+  @@index([tag])
+  @@map("article_tags")
+}
+
+model UserInterest {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tag                   String
+  weight                Float     @default(1.0)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, tag])
+  @@index([userId])
+  @@map("user_interests")
+}
+
+model UserArticleInteraction {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  articleId             String
+  article               Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  isLiked               Boolean   @default(false)
+  isBookmarked          Boolean   @default(false)
+  isShared              Boolean   @default(false)
+  viewedAt              DateTime?
+  viewDuration          Int?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, articleId])
+  @@index([userId])
+  @@index([articleId])
+  @@map("user_article_interactions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. Notification & Subscription Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Notification {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type                  NotificationType
+  title                 String
+  message               String
+
+  relatedOrderId        String?
+  relatedPostId         String?
+  actionUrl             String?
+
+  isRead                Boolean   @default(false)
+  readAt                DateTime?
+
+  isEmailSent           Boolean   @default(false)
+  isPushSent            Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  ORDER_CONFIRMED
+  ORDER_STARTED
+  ORDER_COMPLETED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  BID_RECEIVED
+  BID_ACCEPTED
+  REVIEW_REQUESTED
+  NEW_COMMENT
+  POST_LIKE
+  SYSTEM_ALERT
+}
+
+model Subscription {
+  id                    String    @id @default(cuid())
+  userId                String?
+
+  fcmToken              String?   @unique
+  deviceId              String?
+
+  emailNotifications    Boolean   @default(true)
+  pushNotifications     Boolean   @default(true)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 10. AI Crawler & Content Management
+// ═══════════════════════════════════════════════════════════════════════════
+
+model RssFeed {
+  id                    String    @id @default(cuid())
+  name                  String
+  url                   String    @unique
+  description           String?
+
+  lastFetchedAt         DateTime?
+  nextFetchAt           DateTime?
+
+  isActive              Boolean   @default(true)
+  failureCount          Int       @default(0)
+
+  category              String?
+  language              String    @default("en")
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("rss_feeds")
+}
+
+model AiTaskLog {
+  id                    String    @id @default(cuid())
+  taskType              String
+  resourceId            String?
+  resourceType          String?
+
+  status                String
+  result                Json?
+  errorMessage          String?
+
+  startedAt             DateTime?
+  completedAt           DateTime?
+  durationMs            Int?
+
+  createdAt             DateTime  @default(now())
+
+  @@index([taskType])
+  @@index([status])
+  @@index([createdAt])
+  @@map("ai_task_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. Admin & Audit Models
+// ═══════════════════════════════════════════════════════════════════════════
+
+model AdminLog {
+  id                    String    @id @default(cuid())
+  adminId               String
+  admin                 User      @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  action                String
+  resourceType          String
+  resourceId            String
+
+  changes               Json?
+  notes                 String?
+
+  createdAt             DateTime  @default(now())
+
+  @@index([adminId])
+  @@index([resourceType])
+  @@index([action])
+  @@map("admin_logs")
+}
+
+model SystemConfig {
+  id                    String    @id @default(cuid())
+  key                   String    @unique
+  value                 String
+
+  description           String?
+  updatedAt             DateTime  @updatedAt
+
+  @@map("system_configs")
+}
