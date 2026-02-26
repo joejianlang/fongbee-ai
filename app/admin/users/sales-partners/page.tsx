@@ -49,8 +49,6 @@ const inputCls =
 export default function SalesPartnersPage() {
   const [partners, setPartners] = useState<SalesPartner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState('');
   const [inviteForm, setInviteForm] = useState<{
     partnerId: string;
@@ -61,12 +59,6 @@ export default function SalesPartnersPage() {
   } | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    userId: '',
-    companyName: '',
-    tier: 'BRONZE',
-    description: '',
-  });
 
   useEffect(() => {
     loadPartners();
@@ -91,38 +83,6 @@ export default function SalesPartnersPage() {
     }
   };
 
-  const handleCreatePartner = async () => {
-    if (!createForm.userId) {
-      alert('请选择用户');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/admin/sales-partners', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: createForm.userId,
-          companyName: createForm.companyName || undefined,
-          tier: createForm.tier,
-          description: createForm.description || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setPartners([...partners, data.data]);
-        setShowCreateForm(false);
-        setCreateForm({ userId: '', companyName: '', tier: 'BRONZE', description: '' });
-        alert('✅ 销售合伙人已创建');
-        loadPartners();
-      } else {
-        alert('❌ 创建失败: ' + data.error);
-      }
-    } catch (error) {
-      alert('❌ 创建失败: ' + error);
-    }
-  };
 
   const openInviteForm = (partnerId: string) => {
     setInviteForm({
@@ -179,79 +139,12 @@ export default function SalesPartnersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-text-primary">销售合伙人管理</h1>
-          <p className="text-text-secondary mt-1">管理销售合伙人及其邀请</p>
+          <p className="text-text-secondary mt-1">
+            通过邮件或短信邀请用户成为销售合伙人
+          </p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#0d9488] text-white rounded-lg hover:bg-[#0a7c71] transition-colors font-medium"
-        >
-          <Plus size={18} /> 添加销售合伙人
-        </button>
       </div>
 
-      {/* Create Form */}
-      {showCreateForm && (
-        <div className="bg-card border border-card-border rounded-xl p-6">
-          <h2 className="text-lg font-bold text-text-primary mb-4">创建销售合伙人</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs text-text-muted mb-1">用户ID</label>
-              <input
-                type="text"
-                className={inputCls}
-                placeholder="输入用户ID"
-                value={createForm.userId}
-                onChange={(e) => setCreateForm({ ...createForm, userId: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-text-muted mb-1">公司名称</label>
-              <input
-                type="text"
-                className={inputCls}
-                placeholder="可选"
-                value={createForm.companyName}
-                onChange={(e) => setCreateForm({ ...createForm, companyName: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-text-muted mb-1">等级</label>
-              <select
-                className={inputCls}
-                value={createForm.tier}
-                onChange={(e) => setCreateForm({ ...createForm, tier: e.target.value })}
-              >
-                <option value="BRONZE">青铜级</option>
-                <option value="SILVER">白银级</option>
-                <option value="GOLD">黄金级</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-text-muted mb-1">描述</label>
-              <textarea
-                className={inputCls + ' min-h-[80px]'}
-                placeholder="可选"
-                value={createForm.description}
-                onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleCreatePartner}
-                className="flex-1 px-4 py-2 bg-[#0d9488] text-white rounded-lg hover:bg-[#0a7c71] transition-colors font-medium"
-              >
-                创建
-              </button>
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="flex-1 px-4 py-2 bg-white dark:bg-[#1e1e1e] text-text-secondary border border-border-primary rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Filter */}
       <div className="flex gap-4 bg-card border border-card-border rounded-lg p-4">
@@ -332,9 +225,6 @@ export default function SalesPartnersPage() {
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#0d9488]/10 text-[#0d9488] text-sm rounded-lg hover:bg-[#0d9488]/20 transition-colors font-medium"
                 >
                   <Send size={14} /> 发送邀请
-                </button>
-                <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-white/10 text-text-secondary text-sm rounded-lg hover:bg-gray-200 transition-colors font-medium">
-                  <Edit2 size={14} /> 编辑
                 </button>
               </div>
 
