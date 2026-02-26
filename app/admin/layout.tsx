@@ -65,6 +65,7 @@ const menuItems: MenuItem[] = [
     icon: Settings,
     children: [
       { href: '/admin/service-categories', label: '服务分类' },
+      { href: '/admin/email-templates', label: '邮件模板' },
       { href: '/admin/settings', label: '系统设置' },
     ],
   },
