@@ -20,6 +20,7 @@ import {
   AlertCircle,
   ChevronRight,
   LucideIcon,
+  Brain,
 } from 'lucide-react';
 
 interface SettingModule {
@@ -33,9 +34,17 @@ interface SettingModule {
 
 const SETTING_MODULES: SettingModule[] = [
   {
+    id: 'ai-config',
+    label: 'AI 配置',
+    description: '配置 AI 相关的系统规则和参数',
+    icon: Brain,
+    href: '/admin/settings/ai-config',
+    status: 'active',
+  },
+  {
     id: 'category',
     label: '分类管理',
-    description: '管理平台服务分类',
+    description: '管理首页新闻内容分类',
     icon: Tag,
     href: '/admin/settings/categories',
     status: 'active',
