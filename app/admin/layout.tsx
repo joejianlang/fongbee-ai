@@ -129,7 +129,7 @@ export default function AdminLayout({
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
                         isActive
                           ? 'bg-[rgba(13,148,136,0.18)] text-white border-r-[3px] border-[#0d9488]'
-                          : 'text-white/85 hover:text-white hover:bg-white/10'
+                          : 'text-white hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <Icon size={20} className="flex-shrink-0" />
@@ -155,7 +155,7 @@ export default function AdminLayout({
                             className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                               pathname === child.href
                                 ? 'bg-[rgba(13,148,136,0.18)] text-white font-medium'
-                                : 'text-white/70 hover:text-white hover:bg-white/5'
+                                : 'text-white hover:text-white hover:bg-white/5'
                             }`}
                           >
                             <span>{child.label}</span>
@@ -171,7 +171,7 @@ export default function AdminLayout({
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
                       isActive
                         ? 'bg-[rgba(13,148,136,0.18)] text-white border-r-[3px] border-[#0d9488]'
-                        : 'text-white/85 hover:text-white hover:bg-white/10'
+                        : 'text-white hover:text-white hover:bg-white/10'
                     }`}
                   >
                     <Icon size={20} className="flex-shrink-0" />
