@@ -72,7 +72,7 @@ const menuItems: MenuItem[] = [
       { href: '/admin/service-categories', label: '服务分类' },
       { href: '/admin/email-templates', label: '邮件模板' },
       { href: '/admin/sms-templates', label: '短信模板' },
-      { href: '/admin/settings', label: '系统设置' },
+      { href: '/admin/settings', label: 'AI 全局系统设置' },
     ],
   },
 ];

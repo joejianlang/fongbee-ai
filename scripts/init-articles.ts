@@ -106,7 +106,13 @@ async function initArticles() {
 
         const created = await prisma.contentArticle.create({
           data: {
-            ...article,
+            title: article.title,
+            subtitle: article.subtitle,
+            description: article.description,
+            content: article.content,
+            slug: article.slug,
+            type: article.type as any,
+            status: article.status as any,
             plainText,
             publishedAt: article.status === 'PUBLISHED' ? new Date() : null,
           },
