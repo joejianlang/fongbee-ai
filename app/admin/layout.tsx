@@ -31,7 +31,7 @@ const menuItems: MenuItem[] = [
     label: '标准服务管理',
     icon: Package,
     children: [
-      { href: '/admin/orders', label: '订单管理' },
+      { href: '/admin/standard-orders', label: '订单管理' },
       { href: '/admin/payment-policies', label: '支付政策' },
     ],
   },
@@ -41,6 +41,7 @@ const menuItems: MenuItem[] = [
     label: '定制服务管理',
     icon: List,
     children: [
+      { href: '/admin/custom-orders', label: '订单管理' },
       { href: '/admin/custom-requests', label: '定制需求' },
       { href: '/admin/form-builder', label: '表单构建器' },
     ],
