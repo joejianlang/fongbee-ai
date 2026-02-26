@@ -103,7 +103,7 @@ export default function AdminLayout({
         {/* Logo */}
         <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
           <h1
-            className={`font-bold whitespace-nowrap overflow-hidden text-ellipsis ${
+            className={`font-bold whitespace-nowrap overflow-hidden text-ellipsis text-white ${
               isCollapsed ? 'text-sm' : 'text-sm'
             }`}
           >
@@ -187,7 +187,7 @@ export default function AdminLayout({
         <div className="p-2 border-t border-white/10 flex-shrink-0">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full flex items-center justify-center py-2.5 rounded-lg hover:bg-white/10 transition-colors"
+            className="w-full flex items-center justify-center py-2.5 rounded-lg text-white hover:bg-white/10 transition-colors"
             title={isCollapsed ? '展开菜单' : '折叠菜单'}
           >
             {isCollapsed ? <Menu size={20} /> : <X size={20} />}
