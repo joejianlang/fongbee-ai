@@ -1219,8 +1219,8 @@ enum DeletionStatus {
 
 model AdminLog {
   id           String   @id @default(cuid())
-  adminId      String
-  admin        User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  adminId      String?
+  admin        User?    @relation(fields: [adminId], references: [id], onDelete: Cascade)
   action       String
   resourceType String
   resourceId   String
