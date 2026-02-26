@@ -41,10 +41,10 @@ const ROLE_STYLES: Record<AppUser['role'], string> = {
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
-  const [role, setRole]     = useState<Role>('全部');
 
+  // Only show customer users
   const filtered = MOCK_USERS.filter((u) => {
-    const matchRole   = role === '全部' || u.role === role;
+    const matchRole = u.role === 'customer';
     const matchSearch = !search ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -63,8 +63,8 @@ export default function UsersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-text-primary">用户管理</h1>
-        <p className="text-text-secondary mt-1">查看平台所有用户账户</p>
+        <h1 className="text-3xl font-bold text-text-primary">用户列表</h1>
+        <p className="text-text-secondary mt-1">查看平台所有普通用户</p>
       </div>
 
       {/* Summary Cards */}
@@ -93,21 +93,6 @@ export default function UsersPage() {
             placeholder="搜索用户名 / 邮箱 / ID..."
             className="w-full pl-9 pr-4 py-2 text-sm border border-card-border rounded-lg bg-card text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40"
           />
-        </div>
-        <div className="flex gap-1">
-          {(['全部', 'customer', 'service_provider', 'admin'] as Role[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRole(r)}
-              className={`px-3 py-1.5 text-xs rounded-full font-medium transition-colors ${
-                role === r
-                  ? 'bg-[#0d9488] text-white'
-                  : 'bg-card border border-card-border text-text-secondary hover:bg-gray-50'
-              }`}
-            >
-              {r === '全部' ? '全部' : ROLE_LABELS[r as AppUser['role']]}
-            </button>
-          ))}
         </div>
       </div>
 
