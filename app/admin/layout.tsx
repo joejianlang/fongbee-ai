@@ -98,7 +98,7 @@ export default function AdminLayout({
       <aside
         className={`${
           isCollapsed ? 'w-20' : 'w-64'
-        } bg-nav-bg text-nav-text transition-all duration-300 flex flex-col flex-shrink-0 border-r border-white/10`}
+        } bg-nav text-nav-text transition-all duration-300 flex flex-col flex-shrink-0 border-r border-white/10`}
       >
         {/* Logo */}
         <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
