@@ -1267,6 +1267,44 @@ model EmailTemplate {
   @@map("email_templates")
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SMS Templates
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum SMSTemplateType {
+  VERIFY_CODE                  // 注册验证码
+  PROVIDER_INVITE              // 邀请服务商入驻
+  NEW_ASSIGNED_ORDER           // 新订单派遣通知
+  START_REFUSED                // 开工申请被拒绝
+  SERVICE_COMPLETED            // 服务完成验收通知
+  REWORK_REQUIRED              // 返工通知
+  PROVIDER_RESPONSE_ACCEPTED   // 服务商接受单位通知
+  PROVIDER_RESPONSE_DECLINED   // 服务商拒绝单位通知
+  ORDER_CANCELLED              // 订单取消通知
+  PAYMENT_REMINDER             // 付款提醒
+  SERVICE_START_REQUEST        // 开工申请通知
+  NEW_MESSAGE_NOTICE           // 新消息通知
+  DEPOSIT_RECEIVED             // 定金到账通知
+  SERVICE_START_REMINDER       // 服务开始提醒
+  REVIEW_REMINDER              // 评价提醒
+}
+
+model SMSTemplate {
+  id           String              @id @default(cuid())
+  type         SMSTemplateType     @unique
+  name         String              // 模板名称
+  content      String              // 短信内容
+  description  String?             // 用途描述
+  variables    String?  @db.Text  // JSON 格式的变量说明
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@map("sms_templates")
+}
+
 model SystemConfig {
   id          String   @id @default(cuid())
   key         String   @unique
