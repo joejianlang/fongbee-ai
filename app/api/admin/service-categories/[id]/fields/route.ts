@@ -81,7 +81,7 @@ export async function POST(
 
     await prisma.adminLog.create({
       data: {
-        adminId: 'system',
+        
         action: 'CREATE',
         resourceType: 'FormField',
         resourceId: field.id,

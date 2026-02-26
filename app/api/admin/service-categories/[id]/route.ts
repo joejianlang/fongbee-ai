@@ -40,7 +40,7 @@ export async function DELETE(
     // Admin log
     await prisma.adminLog.create({
       data: {
-        adminId: 'system',
+        
         action: 'DELETE',
         resourceType: 'ServiceCategory',
         resourceId: id,
@@ -79,7 +79,7 @@ export async function PATCH(
     // Admin log
     await prisma.adminLog.create({
       data: {
-        adminId: 'system',
+        
         action: 'UPDATE',
         resourceType: 'ServiceCategory',
         resourceId: id,

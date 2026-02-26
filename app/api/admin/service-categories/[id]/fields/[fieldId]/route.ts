@@ -45,7 +45,7 @@ export async function PATCH(
 
     await prisma.adminLog.create({
       data: {
-        adminId: 'system',
+        
         action: 'UPDATE',
         resourceType: 'FormField',
         resourceId: fieldId,
@@ -82,7 +82,7 @@ export async function DELETE(
 
     await prisma.adminLog.create({
       data: {
-        adminId: 'system',
+        
         action: 'DELETE',
         resourceType: 'FormField',
         resourceId: fieldId,

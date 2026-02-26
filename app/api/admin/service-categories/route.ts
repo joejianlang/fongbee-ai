@@ -54,7 +54,6 @@ export async function POST(
     // Admin log
     await prisma.adminLog.create({
       data: {
-        adminId: 'system',
         action: 'CREATE',
         resourceType: 'ServiceCategory',
         resourceId: category.id,

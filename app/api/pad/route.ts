@@ -74,7 +74,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
     // 记录管理日志（CPPA 合规审计）
     await prisma.adminLog.create({
       data: {
-        adminId: session.user.id,
         action: 'PAD_AUTHORIZATION_CREATED',
         resourceType: 'pad_authorization',
         resourceId: padAuth.id,
