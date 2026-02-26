@@ -1,19 +1,15 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Mail, Lock, User, Building, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { Eye, EyeOff, Mail, Phone, Lock, User, AlertCircle } from 'lucide-react';
 
-function SalesPartnerRegisterContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const invitationId = searchParams.get('invitation');
-
+export default function ServiceProviderRegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [companyName, setCompanyName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,45 +19,6 @@ function SalesPartnerRegisterContent() {
   const inputClass =
     'w-full px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#0d9488]/40 focus:border-[#0d9488] transition-all';
 
-  if (!invitationId) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full">
-          <AlertCircle className="mx-auto mb-4 text-red-500" size={48} />
-          <h1 className="text-xl font-bold text-center text-gray-800 mb-2">无效的邀请链接</h1>
-          <p className="text-center text-gray-600 mb-6">
-            请使用邀请者发送的完整邀请链接来注册
-          </p>
-          <button
-            onClick={() => router.push('/auth/signin')}
-            className="w-full px-4 py-3 bg-[#0d9488] text-white rounded-lg hover:bg-[#0a7c71] transition-colors font-semibold"
-          >
-            返回登录
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-          <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">注册成功！</h1>
-          <p className="text-gray-600 mb-6">
-            恭喜！您已成功注册为销售合伙人。
-            <br />
-            <br />
-            首次注册赠送 ￥100 代金券！
-          </p>
-          <p className="text-sm text-gray-500 mb-6">正在跳转到登录页面...</p>
-          <div className="inline-block w-8 h-8 border-4 border-[#0d9488] border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      </div>
-    );
-  }
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -69,7 +26,7 @@ function SalesPartnerRegisterContent() {
 
     try {
       // 前端验证
-      if (!name || !email || !password || !confirmPassword || !companyName) {
+      if (!name || !email || !phone || !password || !confirmPassword) {
         setError('请填写所有必填项');
         return;
       }
@@ -101,10 +58,9 @@ function SalesPartnerRegisterContent() {
         body: JSON.stringify({
           name,
           email,
+          phone,
           password,
-          role: 'SALES_PARTNER',
-          companyName,
-          invitationId,
+          role: 'SERVICE_PROVIDER',
         }),
       });
 
@@ -119,7 +75,7 @@ function SalesPartnerRegisterContent() {
 
       // 3秒后重定向到登录页
       setTimeout(() => {
-        router.push('/auth/signin');
+        window.location.href = '/auth/signin';
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请重试');
@@ -128,27 +84,37 @@ function SalesPartnerRegisterContent() {
     }
   };
 
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-5xl mb-4">✓</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">注册成功！</h1>
+          <p className="text-gray-600 mb-6">
+            恭喜！您已成功注册为服务商。
+            <br />
+            <br />
+            正在跳转到登录页面...
+          </p>
+          <div className="inline-block w-8 h-8 border-4 border-[#0d9488] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex flex-col items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex flex-col items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-4 shadow-lg">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4 shadow-lg">
             <span className="text-white font-black text-2xl">优</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">销售合伙人注册</h1>
-          <p className="text-gray-600 text-sm mt-1">推荐客户获得佣金</p>
+          <h1 className="text-2xl font-bold text-gray-800">服务商注册</h1>
+          <p className="text-gray-600 text-sm mt-1">与优服佳合作，拓展您的客户</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          {/* Bonus Info */}
-          <div className="bg-gradient-to-r from-green-100 to-emerald-100 border border-green-200 rounded-xl p-4 mb-6">
-            <p className="text-sm font-semibold text-green-800 mb-2">💰 首次注册优惠</p>
-            <p className="text-sm text-green-700">
-              完成注册后，您将获得 ￥100 代金券用于平台消费！
-            </p>
-          </div>
-
           <h2 className="text-xl font-bold text-gray-800 mb-6">创建账户</h2>
 
           {/* Error Alert */}
@@ -196,18 +162,18 @@ function SalesPartnerRegisterContent() {
               </div>
             </div>
 
-            {/* Company Name */}
+            {/* Phone */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                公司名称 *
+                手机号 *
               </label>
               <div className="relative">
-                <Building size={18} className="absolute left-3 top-3 text-gray-400" />
+                <Phone size={18} className="absolute left-3 top-3 text-gray-400" />
                 <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="您的公司或团队名称"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1-416-555-0000"
                   className={inputClass + ' pl-10'}
                   required
                 />
@@ -269,7 +235,7 @@ function SalesPartnerRegisterContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -277,49 +243,39 @@ function SalesPartnerRegisterContent() {
                   注册中...
                 </span>
               ) : (
-                '完成注册'
+                '注册'
               )}
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-gray-300" />
+            <span className="text-xs text-gray-500">或</span>
+            <div className="flex-1 h-px bg-gray-300" />
+          </div>
+
           {/* Login Link */}
-          <p className="text-sm text-gray-600 text-center mt-6">
+          <p className="text-sm text-gray-600 text-center">
             已有账户？{' '}
-            <a href="/auth/signin" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
+            <Link href="/auth/signin" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
               直接登录
-            </a>
+            </Link>
           </p>
         </div>
 
         {/* Footer */}
         <p className="text-xs text-gray-500 text-center mt-6 px-2">
           继续表示您同意{' '}
-          <a href="/terms" className="text-[#0d9488] hover:underline">
+          <Link href="/terms" className="text-[#0d9488] hover:underline">
             服务条款
-          </a>
+          </Link>
           {' '}和{' '}
-          <a href="/privacy" className="text-[#0d9488] hover:underline">
+          <Link href="/privacy" className="text-[#0d9488] hover:underline">
             隐私政策
-          </a>
+          </Link>
         </p>
       </div>
     </div>
-  );
-}
-
-export default function SalesPartnerRegisterPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="inline-block w-8 h-8 border-4 border-[#0d9488] border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-600">加载中...</p>
-          </div>
-        </div>
-      }
-    >
-      <SalesPartnerRegisterContent />
-    </Suspense>
   );
 }

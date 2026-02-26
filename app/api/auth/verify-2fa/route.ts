@@ -1,39 +1,112 @@
+import { prisma } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import jwt from 'jsonwebtoken';
 
-export async function POST(request: NextRequest) {
+const verify2FASchema = z.object({
+  sessionId: z.string().min(1),
+  code: z.string().regex(/^\d{6}$/),
+});
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json();
-    const { sessionId, code } = body;
+    const body = await req.json();
 
     // Validate input
-    if (!sessionId || !code) {
+    const validated = verify2FASchema.parse(body);
+    const { sessionId, code } = validated;
+
+    // Find the temporary 2FA session
+    const session = await prisma.authToken.findFirst({
+      where: {
+        token: sessionId,
+        type: '2FA_SESSION',
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      select: {
+        userId: true,
+      },
+    });
+
+    if (!session) {
       return NextResponse.json(
-        { success: false, error: '缺少必要的验证信息' },
-        { status: 400 }
+        {
+          success: false,
+          error: '会话已过期，请重新登录',
+        },
+        { status: 401 }
       );
     }
 
-    // Validate code format
-    if (!/^\d{6}$/.test(code)) {
+    // Find and verify the 2FA code
+    const twoFAToken = await prisma.authToken.findFirst({
+      where: {
+        userId: session.userId,
+        token: code,
+        type: '2FA_CODE',
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!twoFAToken) {
       return NextResponse.json(
-        { success: false, error: '验证码格式错误' },
-        { status: 400 }
+        {
+          success: false,
+          error: '验证码无效或已过期',
+        },
+        { status: 401 }
       );
     }
 
-    // TODO: Verify 2FA code
-    // 1. Query temporary session by sessionId
-    // 2. Check if code is valid and not expired
-    // 3. Mark session as verified
-    // 4. Generate JWT token
+    // Delete used tokens
+    await prisma.authToken.deleteMany({
+      where: {
+        userId: session.userId,
+        type: {
+          in: ['2FA_SESSION', '2FA_CODE'],
+        },
+      },
+    });
 
-    // Mock successful 2FA verification
-    const user = {
-      id: 'admin_123',
-      email: 'admin@youfujia.ca',
-      role: 'ADMIN',
-      name: '管理员',
-    };
+    // Get user data
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        name: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '用户不存在',
+        },
+        { status: 401 }
+      );
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    // Determine redirect URL (admin always goes to /admin)
+    const redirectUrl = '/admin';
 
     return NextResponse.json(
       {
@@ -42,18 +115,33 @@ export async function POST(request: NextRequest) {
         user: {
           id: user.id,
           email: user.email,
-          role: user.role,
+          phone: user.phone,
           name: user.name,
+          role: user.role,
         },
-        token: 'jwt_token_here',
-        redirectUrl: '/admin',
+        token,
+        redirectUrl,
       },
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: '输入验证失败',
+          error: error.errors[0].message,
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('2FA verification error:', error);
     return NextResponse.json(
-      { success: false, error: '验证失败，请重试' },
+      {
+        success: false,
+        error: '验证失败，请重试',
+      },
       { status: 500 }
     );
   }
