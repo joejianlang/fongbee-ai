@@ -2,6 +2,8 @@ import { prisma } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendTemplatedEmail } from '@/lib/email';
+import { sendTemplatedSMS } from '@/lib/sms';
 
 const inviteSchema = z.object({
   email: z.string().email().optional(),
@@ -116,10 +118,33 @@ export async function POST(
       });
 
       if (emailTemplate && emailTemplate.isActive) {
-        // TODO: 发送邮件邀请
-        console.log(`📧 邮件邀请将发送到: ${data.email}`);
-        console.log(`   模板: ${emailTemplateType}`);
-        console.log(`   链接: ${invitationLink}`);
+        try {
+          // Prepare template variables
+          const templateVariables: Record<string, string | number> = {
+            name: data.name || data.email,
+            invitationLink,
+          };
+
+          // Add type-specific variables
+          if (data.type === 'USER') {
+            templateVariables.inviterName = partner.companyName || '优服佳';
+            templateVariables.invitationCode = partner.referralCode;
+            templateVariables.signupLink = invitationLink;
+          } else {
+            templateVariables.registerLink = invitationLink;
+          }
+
+          await sendTemplatedEmail(
+            data.email,
+            emailTemplate.subject,
+            emailTemplate.htmlContent,
+            templateVariables
+          );
+          console.log(`📧 邮件邀请已发送到: ${data.email}`);
+        } catch (emailError) {
+          console.error(`⚠️  邮件发送失败:`, emailError);
+          // Don't throw - continue even if email fails
+        }
       }
     } else if (data.phone) {
       // 短信只有服务商邀请模板，其他类型用通用提示
@@ -128,10 +153,24 @@ export async function POST(
       });
 
       if (smsTemplate && smsTemplate.isActive) {
-        // TODO: 发送短信邀请
-        console.log(`📱 短信邀请将发送到: ${data.phone}`);
-        console.log(`   邀请类型: ${data.type}`);
-        console.log(`   链接: ${invitationLink}`);
+        try {
+          // Prepare SMS template variables
+          const smsVariables: Record<string, string | number> = {
+            invitationLink,
+            invitationCode: partner.referralCode,
+            type: data.type,
+          };
+
+          await sendTemplatedSMS(
+            data.phone,
+            smsTemplate.content || `邀请链接: ${invitationLink}`,
+            smsVariables
+          );
+          console.log(`📱 短信邀请已发送到: ${data.phone}`);
+        } catch (smsError) {
+          console.error(`⚠️  短信发送失败:`, smsError);
+          // Don't throw - continue even if SMS fails
+        }
       }
     }
 
