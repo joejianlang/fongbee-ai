@@ -23,18 +23,78 @@ const API_CONFIGS: APIConfig[] = [
     value: 'sk_live_••••••••••••••••••••••••••••••••',
     masked: 'sk_live_••••••••••••••••••••••••••••••••',
     description: 'GPT-4 和 GPT-3.5 Turbo 模型的 API 密钥',
-    required: true,
+    required: false,
     status: 'CONFIGURED',
   },
   {
     id: 'anthropic-key',
-    service: 'Anthropic',
+    service: 'Anthropic Claude',
     name: 'Claude API Key',
     value: 'sk_••••••••••••••••••••••••••••••••',
     masked: 'sk_••••••••••••••••••••••••••••••••',
     description: 'Claude 3 系列模型的 API 密钥',
     required: false,
     status: 'CONFIGURED',
+  },
+
+  // Deepseek - 国产便宜模型
+  {
+    id: 'deepseek-key',
+    service: 'Deepseek',
+    name: 'Deepseek API Key',
+    value: 'sk_••••••••••••••••••••••••••••••••',
+    masked: 'sk_••••••••••••••••••••••••••••••••',
+    description: '开源高性能模型，成本极低（$0.000278/1M tokens）',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+
+  // 阿里通义千问
+  {
+    id: 'qwen-key',
+    service: '阿里云 Qwen',
+    name: 'Qwen API Key',
+    value: '••••••••••••••••••••••••••••••••',
+    masked: '••••••••••••••••••••••••••••••••',
+    description: '通义千问大模型，中文优化，价格便宜',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+
+  // 智谱 ChatGLM
+  {
+    id: 'chatglm-key',
+    service: '智谱 ChatGLM',
+    name: 'ChatGLM API Key',
+    value: '••••••••••••••••••••••••••••••••',
+    masked: '••••••••••••••••••••••••••••••••',
+    description: '国产大模型，中文能力强，价格便宜',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+
+  // 百度文心一言
+  {
+    id: 'ernie-key',
+    service: '百度文心',
+    name: 'ERNIE API Key',
+    value: '••••••••••••••••••••••••••••••••',
+    masked: '••••••••••••••••••••••••••••••••',
+    description: '百度AI文心一言，中文优化，接近免费',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+
+  // MiniMax
+  {
+    id: 'minimax-key',
+    service: 'MiniMax',
+    name: 'MiniMax API Key',
+    value: '••••••••••••••••••••••••••••••••',
+    masked: '••••••••••••••••••••••••••••••••',
+    description: '国产轻量级模型，速度快成本低',
+    required: false,
+    status: 'NOT_CONFIGURED',
   },
 
   // YouTube

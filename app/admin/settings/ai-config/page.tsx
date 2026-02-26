@@ -194,26 +194,94 @@ export default function AIConfigPage() {
             🤖 AI 模型选择
           </h2>
 
-          <div className="space-y-3">
-            {[
-              { id: 'model1', name: 'GPT-4', description: '最强大的模型，准确率最高但成本较高' },
-              { id: 'model2', name: 'GPT-3.5 Turbo', description: '平衡性能和成本，推荐使用' },
-              { id: 'model3', name: 'Claude 3', description: '多模态模型，可处理文本和图像' },
-            ].map((model) => (
-              <label key={model.id} className="flex items-start gap-3 p-3 border border-card-border rounded-lg cursor-pointer hover:bg-card-border/50 transition-colors">
-                <input
-                  type="radio"
-                  name="ai-model"
-                  value={model.id}
-                  defaultChecked={model.id === 'model2'}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-text-primary">{model.name}</p>
-                  <p className="text-xs text-text-secondary mt-0.5">{model.description}</p>
-                </div>
-              </label>
-            ))}
+          <div className="space-y-4">
+            {/* 高性能模型 */}
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <span className="text-lg">⚡</span>
+                高性能模型（高成本）
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { id: 'model1', name: 'GPT-4', description: '最强大的模型，准确率最高，成本较高 (~$0.03/1K tokens)' },
+                  { id: 'model3', name: 'Claude 3 Opus', description: '多模态模型，可处理文本和图像，性能卓越' },
+                ].map((model) => (
+                  <label key={model.id} className="flex items-start gap-3 p-3 border border-card-border rounded-lg cursor-pointer hover:bg-card-border/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="ai-model"
+                      value={model.id}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{model.name}</p>
+                      <p className="text-xs text-text-secondary mt-0.5">{model.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 均衡模型 */}
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <span className="text-lg">⚖️</span>
+                均衡模型（推荐）
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { id: 'model2', name: 'GPT-3.5 Turbo', description: '平衡性能和成本，推荐使用 (~$0.0015/1K tokens)' },
+                  { id: 'model4', name: 'Claude 3 Sonnet', description: '快速、成本效益高的多模态模型' },
+                ].map((model) => (
+                  <label key={model.id} className="flex items-start gap-3 p-3 border border-card-border rounded-lg cursor-pointer hover:bg-card-border/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="ai-model"
+                      value={model.id}
+                      defaultChecked={model.id === 'model2'}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{model.name}</p>
+                      <p className="text-xs text-text-secondary mt-0.5">{model.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 经济型模型 */}
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                <span className="text-lg">💰</span>
+                经济型模型（国产大模型，最便宜）
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { id: 'deepseek', name: 'Deepseek-V3', description: '开源、高性能、成本极低 (~$0.000278/1M tokens)，支持中文优化' },
+                  { id: 'qwen', name: '阿里 Qwen', description: '通义千问，支持中文，成本低廉 (~$0.001/1K tokens)' },
+                  { id: 'zhipu', name: '智谱 ChatGLM', description: '国产大模型，中文能力强，价格便宜' },
+                  { id: 'baidu', name: '百度文心一言', description: '百度AI，中文优化，接近免费的价格方案' },
+                  { id: 'minimax', name: 'MiniMax', description: '国产轻量级模型，速度快成本低' },
+                ].map((model) => (
+                  <label key={model.id} className="flex items-start gap-3 p-3 border border-card-border rounded-lg cursor-pointer hover:bg-card-border/50 transition-colors bg-amber-50/50">
+                    <input
+                      type="radio"
+                      name="ai-model"
+                      value={model.id}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{model.name}</p>
+                      <p className="text-xs text-text-secondary mt-0.5">{model.description}</p>
+                    </div>
+                    <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-700 font-medium flex-shrink-0">
+                      最便宜
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
