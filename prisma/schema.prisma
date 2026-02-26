@@ -74,6 +74,11 @@ model User {
   smsLogs              SMSLog[]
   contentArticles      ContentArticle[]      @relation("ContentArticleCreator")  // 内容文章创建者
   contentArticleVersions ContentArticleVersion[] @relation("ContentArticleVersionEditor")  // 内容文章版本编辑者
+  salesPartner         SalesPartner?         @relation("SalesPartnerUser")  // 销售合伙人（管理员角色）
+
+  // 被销售合伙人邀请
+  invitedBySalesPartnerId String?
+  invitedBySalesPartner   SalesPartner?  @relation("SalesPartnerInvitedUsers", fields: [invitedBySalesPartnerId], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([phone])
@@ -178,6 +183,10 @@ model ServiceProvider {
   padAuthorizations  PADAuthorization[]
   payouts            Payout[]
   serviceCategories  ServiceProviderCategory[]
+
+  // 被销售合伙人邀请
+  invitedBySalesPartnerId String?
+  invitedBySalesPartner   SalesPartner?  @relation("SalesPartnerInvitedProviders", fields: [invitedBySalesPartnerId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([isVerified])
@@ -1393,6 +1402,109 @@ model ContentArticleVersion {
   @@index([articleId])
   @@index([createdAt])
   @@map("content_article_versions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sales Partners & Referrals (销售合伙人)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum SalesPartnerTier {
+  BRONZE   // 青铜级 - 基础合伙人
+  SILVER   // 白银级 - 中级合伙人
+  GOLD     // 黄金级 - 高级合伙人
+}
+
+enum SalesPartnerStatus {
+  ACTIVE      // 活跃
+  INACTIVE    // 非活跃
+  SUSPENDED   // 暂停
+}
+
+model SalesPartner {
+  id              String                @id @default(cuid())
+  userId          String                @unique
+  user            User                  @relation("SalesPartnerUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  // 基本信息
+  companyName     String?               // 公司名称
+  tier            SalesPartnerTier      @default(BRONZE)
+  status          SalesPartnerStatus    @default(ACTIVE)
+
+  // 邀请码（用于邀请链接）
+  referralCode    String                @unique  // 唯一邀请码
+
+  // 描述
+  description     String?
+
+  // 时间戳
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  // 关系
+  invitations           SalesPartnerInvitation[]
+  stats                 SalesPartnerStats?
+  invitedUsers          User[]                @relation("SalesPartnerInvitedUsers")
+  invitedProviders      ServiceProvider[]     @relation("SalesPartnerInvitedProviders")
+
+  @@index([tier])
+  @@index([status])
+  @@index([referralCode])
+  @@map("sales_partners")
+}
+
+// 销售合伙人邀请链接和统计
+model SalesPartnerInvitation {
+  id              String                @id @default(cuid())
+  partnerId       String
+  partner         SalesPartner          @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  // 被邀请者信息
+  inviteeEmail    String?               // @pii:CONTACT
+  inviteePhone    String?               // @pii:CONTACT
+  inviteeName     String?
+  inviteeType     String                // "USER" | "SERVICE_PROVIDER" - 邀请的类型
+
+  // 邀请状态
+  status          String                @default("PENDING")  // PENDING, ACCEPTED, REJECTED, EXPIRED
+  expiresAt       DateTime              // 邀请链接过期时间（30天）
+  acceptedAt      DateTime?
+  acceptedUserId  String?               // 接受邀请的用户ID
+
+  // 追踪
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([partnerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([acceptedAt])
+  @@map("sales_partner_invitations")
+}
+
+// 销售合伙人周期统计
+model SalesPartnerStats {
+  id                      String          @id @default(cuid())
+  partnerId               String          @unique
+  partner                 SalesPartner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  // 总计统计
+  totalUsersInvited       Int             @default(0)     // 总邀请用户数
+  totalProvidersInvited   Int             @default(0)     // 总邀请服务商数
+  totalInvitations        Int             @default(0)     // 总邀请数
+
+  // 当周统计 (周一至周日)
+  weekUsersInvited        Int             @default(0)
+  weekProvidersInvited    Int             @default(0)
+  weekStartDate           DateTime?       // 当周开始日期
+
+  // 当月统计
+  monthUsersInvited       Int             @default(0)
+  monthProvidersInvited   Int             @default(0)
+  monthStartDate          DateTime?       // 当月开始日期
+
+  updatedAt               DateTime        @updatedAt
+
+  @@map("sales_partner_stats")
 }
 
 model SystemConfig {

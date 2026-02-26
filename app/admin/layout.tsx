@@ -52,7 +52,11 @@ const menuItems: MenuItem[] = [
     label: '用户管理',
     icon: Users,
     children: [
-      { href: '/admin/users', label: '用户列表' },
+      { href: '/admin/users/sales-partners', label: '销售合伙人' },
+      { href: '/admin/users', label: '用户户列表' },
+      { href: '/admin/users/subscriptions', label: '订阅记录' },
+      { href: '/admin/users/invitations', label: '销售邀请' },
+      { href: '/admin/users/providers', label: '服务商列表' },
     ],
   },
 
