@@ -48,8 +48,8 @@ export async function POST(
       },
     });
 
-    // 生成邀请链接（包含邀请码和合伙人的referralCode）
-    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/register?referral=${partner.referralCode}&invitation=${invitation.id}`;
+    // 生成销售合伙人注册链接（包含邀请码和合伙人的referralCode）
+    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/register/sales-partner?referral=${partner.referralCode}&invitation=${invitation.id}`;
 
     // 获取短信模板（发送邀请SMS）
     const smsTemplate = await prisma.sMSTemplate.findUnique({

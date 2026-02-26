@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Send, TrendingUp, Users, Building } from 'lucide-react';
+import { Plus, Edit2, Trash2, Send, TrendingUp, Users, Building, Copy, Check } from 'lucide-react';
 
 interface SalesPartner {
   id: string;
@@ -59,6 +59,8 @@ export default function SalesPartnersPage() {
     name: string;
     type: string;
   } | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [createForm, setCreateForm] = useState({
     userId: '',
     companyName: '',
@@ -153,8 +155,12 @@ export default function SalesPartnersPage() {
 
       const data = await res.json();
       if (data.success) {
-        alert(`✅ 邀请已发送\n邀请链接: ${data.data.invitationLink}`);
-        setInviteForm(null);
+        // 生成销售合伙人注册链接
+        const registerLink = `${window.location.origin}/register/sales-partner?invitation=${data.data.invitationId}&referral=${data.data.referralCode}`;
+
+        // 显示链接供管理员复制
+        setGeneratedLink(registerLink);
+        setLinkCopied(false);
       } else {
         alert('❌ 发送失败: ' + data.error);
       }
@@ -332,8 +338,41 @@ export default function SalesPartnersPage() {
                 </button>
               </div>
 
+              {/* Generated Link Display */}
+              {generatedLink && inviteForm?.partnerId === partner.id && (
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-500/10 border border-green-200 rounded-lg mb-4">
+                  <h4 className="font-bold text-green-700 dark:text-green-400 mb-2">✅ 邀请链接已生成</h4>
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1 bg-white dark:bg-[#1e1e1e] p-3 rounded border border-green-200 break-all text-xs text-text-secondary font-mono">
+                      {generatedLink}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(generatedLink);
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                      }}
+                      className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors whitespace-nowrap"
+                    >
+                      {linkCopied ? (
+                        <>
+                          <Check size={14} /> 已复制
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} /> 复制
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-400 mt-2">
+                    可以通过邮件、短信或其他方式发送此链接给被邀请者
+                  </p>
+                </div>
+              )}
+
               {/* Invite Form */}
-              {inviteForm?.partnerId === partner.id && (
+              {inviteForm?.partnerId === partner.id && !generatedLink && (
                 <div className="mt-4 border-t border-border-primary pt-4">
                   <h4 className="font-bold text-text-primary mb-3">发送邀请</h4>
                   <div className="space-y-3">
@@ -396,13 +435,31 @@ export default function SalesPartnersPage() {
                         发送邀请
                       </button>
                       <button
-                        onClick={() => setInviteForm(null)}
+                        onClick={() => {
+                          setInviteForm(null);
+                          setGeneratedLink(null);
+                        }}
                         className="flex-1 px-3 py-2 bg-white dark:bg-[#1e1e1e] text-text-secondary border border-border-primary text-sm rounded-lg hover:bg-gray-50 transition-colors"
                       >
                         取消
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Link Generated - Show Copy Interface */}
+              {generatedLink && inviteForm?.partnerId === partner.id && (
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => {
+                      setInviteForm(null);
+                      setGeneratedLink(null);
+                    }}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-[#1e1e1e] text-text-secondary border border-border-primary text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    完成
+                  </button>
                 </div>
               )}
             </div>
