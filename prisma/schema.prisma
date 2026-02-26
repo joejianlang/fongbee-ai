@@ -587,22 +587,31 @@ enum FormFieldType {
   date
 }
 
-model FormField {
-  id           String          @id @default(cuid())
-  categoryId   String
-  category     ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  fieldType    FormFieldType
-  fieldKey     String          // 表单数据 key，如 "room_count"
-  label        String          // 显示标签，如 "房间数量"
-  placeholder  String?
-  required     Boolean         @default(false)
-  optionsJson  String?         // JSON array of strings，用于 select/chips 等
-  displayOrder Int             @default(0)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+enum FormTemplateType {
+  USER_REGISTRATION    // 用户注册表单
+  STANDARD_SERVICE     // 标准服务表单
+  SIMPLE_CUSTOM        // 简单定制服务表单
+  COMPLEX_CUSTOM       // 复杂定制服务表单
+  CONTRACT             // 合同表单
+}
 
-  @@unique([categoryId, fieldKey])
+model FormField {
+  id           String            @id @default(cuid())
+  categoryId   String
+  category     ServiceCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  templateType FormTemplateType  @default(STANDARD_SERVICE) // 表单类型：注册、标准服务、简单定制、复杂定制、合同
+  fieldType    FormFieldType
+  fieldKey     String            // 表单数据 key，如 "room_count"
+  label        String            // 显示标签，如 "房间数量"
+  placeholder  String?
+  required     Boolean           @default(false)
+  optionsJson  String?           // JSON array of strings，用于 select/chips 等
+  displayOrder Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
   @@index([categoryId])
+  @@index([categoryId, templateType])
   @@map("form_fields")
 }
 

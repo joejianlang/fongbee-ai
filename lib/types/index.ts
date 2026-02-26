@@ -177,9 +177,25 @@ export type FormFieldType =
   | 'multichips'
   | 'date';
 
+export type FormTemplateType =
+  | 'USER_REGISTRATION'   // 用户注册表单
+  | 'STANDARD_SERVICE'    // 标准服务表单
+  | 'SIMPLE_CUSTOM'       // 简单定制服务表单
+  | 'COMPLEX_CUSTOM'      // 复杂定制服务表单
+  | 'CONTRACT';           // 合同表单
+
+export const FORM_TEMPLATE_LABELS: Record<FormTemplateType, string> = {
+  USER_REGISTRATION: '用户注册表单',
+  STANDARD_SERVICE: '标准服务表单',
+  SIMPLE_CUSTOM: '简单定制服务表单',
+  COMPLEX_CUSTOM: '复杂定制服务表单',
+  CONTRACT: '合同表单',
+};
+
 export interface FormFieldDef {
   id: string;
   categoryId: string;
+  templateType: FormTemplateType;
   fieldType: FormFieldType;
   fieldKey: string;
   label: string;

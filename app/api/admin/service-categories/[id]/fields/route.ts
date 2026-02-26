@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const fieldSchema = z.object({
+  templateType: z.enum(['USER_REGISTRATION', 'STANDARD_SERVICE', 'SIMPLE_CUSTOM', 'COMPLEX_CUSTOM', 'CONTRACT']).default('STANDARD_SERVICE'),
   fieldType: z.enum(['text', 'textarea', 'number', 'select', 'multiselect', 'chips', 'multichips', 'date']),
   fieldKey: z.string().min(1).max(60).regex(/^[a-z_]+$/, 'fieldKey 只允许小写字母和下划线'),
   label: z.string().min(1).max(80),
@@ -17,6 +18,7 @@ function serializeField(f: any): FormFieldDef {
   return {
     id: f.id,
     categoryId: f.categoryId,
+    templateType: f.templateType,
     fieldType: f.fieldType,
     fieldKey: f.fieldKey,
     label: f.label,
@@ -28,17 +30,22 @@ function serializeField(f: any): FormFieldDef {
 }
 
 /**
- * GET /api/admin/service-categories/[id]/fields
- * 获取该分类的所有表单字段
+ * GET /api/admin/service-categories/[id]/fields?templateType=STANDARD_SERVICE
+ * 获取该分类指定表单模板类型的所有表单字段
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ApiResponse<FormFieldDef[]>>> {
   try {
     const { id } = await params;
+    const templateType = req.nextUrl.searchParams.get('templateType') || 'STANDARD_SERVICE';
+
     const fields = await prisma.formField.findMany({
-      where: { categoryId: id },
+      where: {
+        categoryId: id,
+        templateType: templateType as any,
+      },
       orderBy: { displayOrder: 'asc' },
     });
 

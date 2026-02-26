@@ -4,12 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const updateSchema = z.object({
-  fieldType: z.enum(['text', 'textarea', 'number', 'select', 'multiselect', 'chips', 'multichips', 'date']).optional(),
-  label: z.string().min(1).max(80).optional(),
-  placeholder: z.string().optional().nullable(),
   required: z.boolean().optional(),
-  options: z.array(z.string()).optional().nullable(),
-  displayOrder: z.coerce.number().int().min(0).optional(),
+  label: z.string().optional(),
+  placeholder: z.string().optional(),
+  displayOrder: z.number().optional(),
 });
 
 function serializeField(f: any): FormFieldDef {
@@ -28,26 +26,21 @@ function serializeField(f: any): FormFieldDef {
 }
 
 /**
- * PATCH /api/admin/fields/[fieldId]
- * 更新单个表单字段
+ * PATCH /api/admin/service-categories/[id]/fields/[fieldId]
+ * 更新表单字段
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ fieldId: string }> }
+  { params }: { params: Promise<{ id: string; fieldId: string }> }
 ): Promise<NextResponse<ApiResponse<FormFieldDef>>> {
   try {
-    const { fieldId } = await params;
+    const { id: categoryId, fieldId } = await params;
     const body = await req.json();
-    const { options, ...rest } = updateSchema.parse(body);
-
-    const updateData: Record<string, unknown> = { ...rest };
-    if (options !== undefined) {
-      updateData.optionsJson = options ? JSON.stringify(options) : null;
-    }
+    const updates = updateSchema.parse(body);
 
     const field = await prisma.formField.update({
       where: { id: fieldId },
-      data: updateData,
+      data: updates,
     });
 
     await prisma.adminLog.create({
@@ -56,7 +49,7 @@ export async function PATCH(
         action: 'UPDATE',
         resourceType: 'FormField',
         resourceId: fieldId,
-        changesJson: JSON.stringify({ ...rest, options }),
+        changesJson: JSON.stringify(updates),
       },
     });
 
@@ -73,17 +66,19 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/admin/fields/[fieldId]
- * 删除单个表单字段
+ * DELETE /api/admin/service-categories/[id]/fields/[fieldId]
+ * 删除表单字段
  */
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ fieldId: string }> }
+  { params }: { params: Promise<{ id: string; fieldId: string }> }
 ): Promise<NextResponse<ApiResponse<null>>> {
   try {
-    const { fieldId } = await params;
+    const { id: categoryId, fieldId } = await params;
 
-    await prisma.formField.delete({ where: { id: fieldId } });
+    await prisma.formField.delete({
+      where: { id: fieldId },
+    });
 
     await prisma.adminLog.create({
       data: {
@@ -91,10 +86,11 @@ export async function DELETE(
         action: 'DELETE',
         resourceType: 'FormField',
         resourceId: fieldId,
+        changesJson: JSON.stringify({}),
       },
     });
 
-    return NextResponse.json({ success: true, data: null });
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '删除字段失败' },

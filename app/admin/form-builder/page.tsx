@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Edit2, Check, X } from 'lucide-react';
-import DynamicFormRenderer from '@/components/DynamicFormRenderer';
-import { ServiceCategoryDef, FormFieldDef, FormFieldType } from '@/lib/types';
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import { ServiceCategoryDef, FormFieldDef, FormFieldType, FormTemplateType, FORM_TEMPLATE_LABELS } from '@/lib/types';
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: 'text',        label: '单行文字' },
@@ -16,17 +15,25 @@ const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: 'date',        label: '日期' },
 ];
 
+const FORM_TEMPLATES: { value: FormTemplateType; label: string }[] = [
+  { value: 'USER_REGISTRATION',  label: '👤 用户注册表单' },
+  { value: 'STANDARD_SERVICE',   label: '📋 标准服务表单' },
+  { value: 'SIMPLE_CUSTOM',      label: '📝 简单定制服务表单' },
+  { value: 'COMPLEX_CUSTOM',     label: '🏗️ 复杂定制服务表单' },
+  { value: 'CONTRACT',           label: '📄 合同表单' },
+];
+
 const NEEDS_OPTIONS: FormFieldType[] = ['select', 'multiselect', 'chips', 'multichips'];
 
 const inputCls =
   'w-full px-3 py-2 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40';
 
 export default function FormBuilderPage() {
-  const [categories, setCategories]   = useState<ServiceCategoryDef[]>([]);
-  const [selectedId, setSelectedId]   = useState<string | null>(null);
-  const [fields, setFields]           = useState<FormFieldDef[]>([]);
-  const [preview, setPreview]         = useState<Record<string, unknown>>({});
-  const [loading, setLoading]         = useState(false);
+  const [categories, setCategories] = useState<ServiceCategoryDef[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<FormTemplateType>('STANDARD_SERVICE');
+  const [fields, setFields] = useState<FormFieldDef[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
   const [expandedField, setExpandedField] = useState<string | null>(null);
 
@@ -37,7 +44,7 @@ export default function FormBuilderPage() {
     label: '',
     placeholder: '',
     required: false,
-    optionsRaw: '',   // comma-separated
+    optionsRaw: '',
     displayOrder: 0,
   });
 
@@ -50,10 +57,10 @@ export default function FormBuilderPage() {
       });
   }, []);
 
-  /* ── Fetch fields when category changes ─────────────────────── */
-  const loadFields = useCallback((catId: string) => {
+  /* ── Fetch fields when category or template changes ─────────── */
+  const loadFields = useCallback((catId: string, templateType: FormTemplateType) => {
     setLoading(true);
-    fetch(`/api/admin/service-categories/${catId}/fields`)
+    fetch(`/api/admin/service-categories/${catId}/fields?templateType=${templateType}`)
       .then((r) => r.json())
       .then((res) => {
         if (res.success) setFields(res.data);
@@ -64,11 +71,20 @@ export default function FormBuilderPage() {
 
   const selectCategory = (id: string) => {
     setSelectedId(id);
+    setSelectedTemplate('STANDARD_SERVICE');
     setFields([]);
-    setPreview({});
     setShowAddField(false);
     setExpandedField(null);
-    loadFields(id);
+    loadFields(id, 'STANDARD_SERVICE');
+  };
+
+  const switchTemplate = (templateType: FormTemplateType) => {
+    if (!selectedId) return;
+    setSelectedTemplate(templateType);
+    setFields([]);
+    setShowAddField(false);
+    setExpandedField(null);
+    loadFields(selectedId, templateType);
   };
 
   /* ── Add field ──────────────────────────────────────────────── */
@@ -83,11 +99,12 @@ export default function FormBuilderPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fieldType:    newField.fieldType,
-        fieldKey:     newField.fieldKey,
-        label:        newField.label,
-        placeholder:  newField.placeholder || undefined,
-        required:     newField.required,
+        templateType: selectedTemplate,
+        fieldType: newField.fieldType,
+        fieldKey: newField.fieldKey,
+        label: newField.label,
+        placeholder: newField.placeholder || undefined,
+        required: newField.required,
         options,
         displayOrder: fields.length,
       }),
@@ -98,60 +115,60 @@ export default function FormBuilderPage() {
       setNewField({ fieldType: 'text', fieldKey: '', label: '', placeholder: '', required: false, optionsRaw: '', displayOrder: 0 });
       setShowAddField(false);
     } else {
-      alert(data.error ?? '添加失败');
+      alert('Error: ' + data.error);
     }
   };
 
   /* ── Delete field ───────────────────────────────────────────── */
   const deleteField = async (fieldId: string) => {
-    if (!confirm('确认删除该字段？')) return;
-    const res = await fetch(`/api/admin/fields/${fieldId}`, { method: 'DELETE' });
+    if (!selectedId) return;
+    const res = await fetch(`/api/admin/service-categories/${selectedId}/fields/${fieldId}`, { method: 'DELETE' });
     const data = await res.json();
-    if (data.success) setFields((prev) => prev.filter((f) => f.id !== fieldId));
+    if (data.success) {
+      setFields((prev) => prev.filter((f) => f.id !== fieldId));
+    }
   };
 
   /* ── Toggle required ────────────────────────────────────────── */
   const toggleRequired = async (field: FormFieldDef) => {
-    const res = await fetch(`/api/admin/fields/${field.id}`, {
+    if (!selectedId) return;
+    const res = await fetch(`/api/admin/service-categories/${selectedId}/fields/${field.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ required: !field.required }),
     });
     const data = await res.json();
-    if (data.success) setFields((prev) => prev.map((f) => f.id === field.id ? data.data : f));
+    if (data.success) {
+      setFields((prev) => prev.map((f) => (f.id === field.id ? { ...f, required: !f.required } : f)));
+    }
   };
 
   const selectedCat = categories.find((c) => c.id === selectedId);
 
   return (
-    <div className="flex h-full gap-6">
-
-      {/* ── Left: Category list ─────────────────────────────── */}
-      <aside className="w-64 flex-shrink-0">
-        <h2 className="text-base font-bold text-text-primary mb-3">服务分类</h2>
-        <div className="space-y-1">
+    <div className="flex gap-6">
+      {/* ── Sidebar: Categories ────────────────────────────────── */}
+      <aside className="w-48 flex-shrink-0 space-y-4">
+        <h2 className="text-sm font-bold text-text-primary">服务分类</h2>
+        <div className="space-y-1 max-h-[70vh] overflow-y-auto">
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => selectCategory(cat.id)}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors ${
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 selectedId === cat.id
-                  ? 'bg-[#0d9488] text-white'
-                  : 'hover:bg-gray-100 dark:hover:bg-white/5 text-text-primary'
+                  ? 'bg-[#0d9488]/20 text-[#0d9488] font-medium border-l-2 border-[#0d9488]'
+                  : 'text-text-secondary hover:bg-white/5'
               }`}
             >
-              <span>{cat.name}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                selectedId === cat.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-text-muted'
-              }`}>
-                {cat._count?.formFields ?? 0}
-              </span>
+              {cat.name}
+              <span className="text-xs text-text-muted ml-2">({cat._count?.formFields || 0})</span>
             </button>
           ))}
         </div>
       </aside>
 
-      {/* ── Middle: Field list + editor ─────────────────────── */}
+      {/* ── Main: Template + Fields ────────────────────────────── */}
       <div className="flex-1 min-w-0">
         {!selectedId ? (
           <div className="flex items-center justify-center h-64 text-text-muted text-sm">
@@ -159,10 +176,33 @@ export default function FormBuilderPage() {
           </div>
         ) : (
           <>
+            {/* ── Template type selector ─────────────────────── */}
+            <div className="mb-6 space-y-3">
+              <div>
+                <h2 className="text-base font-bold text-text-primary mb-3">选择表单类型</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {FORM_TEMPLATES.map((template) => (
+                    <button
+                      key={template.value}
+                      onClick={() => switchTemplate(template.value)}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        selectedTemplate === template.value
+                          ? 'bg-[#0d9488] text-white shadow-md'
+                          : 'bg-white dark:bg-[#2d2d30] text-text-secondary border border-border-primary hover:border-[#0d9488]'
+                      }`}
+                    >
+                      {template.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Fields header ────────────────────────────── */}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-text-primary">
-                {selectedCat?.name} — 表单字段
-              </h2>
+              <h3 className="text-base font-bold text-text-primary">
+                {selectedCat?.name} — {FORM_TEMPLATE_LABELS[selectedTemplate]}
+              </h3>
               <button
                 onClick={() => setShowAddField(true)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-[#0d9488] text-white text-sm rounded-lg hover:bg-[#0a7c71] transition-colors"
@@ -171,6 +211,7 @@ export default function FormBuilderPage() {
               </button>
             </div>
 
+            {/* ── Fields list ────────────────────────────── */}
             {loading ? (
               <p className="text-sm text-text-muted">加载中…</p>
             ) : (
@@ -226,13 +267,13 @@ export default function FormBuilderPage() {
 
                 {fields.length === 0 && !showAddField && (
                   <p className="text-sm text-text-muted text-center py-8">
-                    该分类暂无字段，点击「添加字段」开始配置
+                    该表单类型暂无字段，点击「添加字段」开始配置
                   </p>
                 )}
               </div>
             )}
 
-            {/* Add field form */}
+            {/* ── Add field form ──────────────────────────── */}
             {showAddField && (
               <div className="mt-4 bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm border border-[#0d9488]/40 p-5 space-y-4">
                 <p className="font-semibold text-sm text-text-primary">新增字段</p>
@@ -251,7 +292,7 @@ export default function FormBuilderPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-text-muted mb-1">字段 Key（英文小写+下划线）*</label>
+                    <label className="block text-xs text-text-muted mb-1">字段 Key *</label>
                     <input
                       className={inputCls}
                       placeholder="e.g. room_count"
@@ -272,7 +313,7 @@ export default function FormBuilderPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-text-muted mb-1">占位文字（可选）</label>
+                    <label className="block text-xs text-text-muted mb-1">占位文字</label>
                     <input
                       className={inputCls}
                       placeholder="e.g. 请输入..."
@@ -299,45 +340,29 @@ export default function FormBuilderPage() {
                     type="checkbox"
                     checked={newField.required}
                     onChange={(e) => setNewField((p) => ({ ...p, required: e.target.checked }))}
-                    className="w-4 h-4 rounded accent-[#0d9488]"
+                    className="w-4 h-4"
                   />
-                  必填项
+                  必填字段
                 </label>
 
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-3">
                   <button
                     onClick={addField}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#0d9488] text-white text-sm rounded-lg hover:bg-[#0a7c71]"
+                    className="flex-1 px-4 py-2 bg-[#0d9488] text-white text-sm rounded-lg hover:bg-[#0a7c71] transition-colors font-medium"
                   >
-                    <Check size={14} /> 保存字段
+                    保存字段
                   </button>
                   <button
                     onClick={() => setShowAddField(false)}
-                    className="flex items-center gap-1.5 px-4 py-2 border border-border-primary text-text-secondary text-sm rounded-lg hover:bg-gray-50"
+                    className="flex-1 px-4 py-2 bg-white dark:bg-[#1e1e1e] text-text-secondary border border-border-primary text-sm rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <X size={14} /> 取消
+                    取消
                   </button>
                 </div>
               </div>
             )}
           </>
         )}
-      </div>
-
-      {/* ── Right: Live preview ──────────────────────────────── */}
-      <div className="w-72 flex-shrink-0">
-        <h2 className="text-base font-bold text-text-primary mb-3">表单预览</h2>
-        <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm border border-border-primary p-4">
-          {fields.length === 0 ? (
-            <p className="text-sm text-text-muted text-center py-6">添加字段后此处预览</p>
-          ) : (
-            <DynamicFormRenderer
-              fields={fields}
-              values={preview}
-              onChange={(key, val) => setPreview((p) => ({ ...p, [key]: val }))}
-            />
-          )}
-        </div>
       </div>
     </div>
   );

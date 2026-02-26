@@ -43,6 +43,7 @@ export async function GET(
       fields: category.formFields.map((f) => ({
         id: f.id,
         categoryId: f.categoryId,
+        templateType: f.templateType as any,
         fieldType: f.fieldType as FormTemplateDef['fields'][number]['fieldType'],
         fieldKey: f.fieldKey,
         label: f.label,
