@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Phone, Lock, AlertCircle } from 'lucide-react';
 
-type LoginMethod = 'password' | 'email-code' | 'sms-code' | '2fa';
+type LoginMethod = 'password' | 'code' | '2fa';
 
 export default function SignInPage() {
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
@@ -64,7 +64,7 @@ export default function SignInPage() {
           const redirectUrl = data.redirectUrl || '/dashboard';
           window.location.href = redirectUrl;
         }
-      } else {
+      } else if (loginMethod === 'code') {
         // 验证码登录
         if (!identifier) {
           setError('请输入邮箱或手机号');
@@ -219,24 +219,14 @@ export default function SignInPage() {
                   密码登录
                 </button>
                 <button
-                  onClick={() => setLoginMethod('email-code')}
+                  onClick={() => setLoginMethod('code')}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    loginMethod === 'email-code'
+                    loginMethod === 'code'
                       ? 'bg-[#0d9488] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  邮箱验证码
-                </button>
-                <button
-                  onClick={() => setLoginMethod('sms-code')}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    loginMethod === 'sms-code'
-                      ? 'bg-[#0d9488] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  短信验证码
+                  {identifierType === 'email' ? '邮箱验证码' : '短信验证码'}
                 </button>
               </div>
 
@@ -367,7 +357,7 @@ export default function SignInPage() {
             <>
               <h2 className="text-xl font-bold text-gray-800 mb-2">输入验证码</h2>
               <p className="text-gray-600 text-sm mb-6">
-                验证码已发送到您的{loginMethod === 'email-code' ? '邮箱' : '手机号'}
+                验证码已发送到您的{identifierType === 'email' ? '邮箱' : '手机号'}
               </p>
 
               {error && (
