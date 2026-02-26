@@ -96,7 +96,8 @@ export default function SalesPartnersPage() {
 
   const sendInvite = async () => {
     if (!inviteForm) return;
-    if (!inviteForm.email && !inviteForm.phone) {
+    const contact = inviteForm.email || inviteForm.phone;
+    if (!contact) {
       alert('请输入邮箱或手机号');
       return;
     }
@@ -108,7 +109,6 @@ export default function SalesPartnersPage() {
         body: JSON.stringify({
           email: inviteForm.email || undefined,
           phone: inviteForm.phone || undefined,
-          name: inviteForm.name || undefined,
           type: inviteForm.type,
         }),
       });
@@ -122,10 +122,10 @@ export default function SalesPartnersPage() {
         setGeneratedLink(registerLink);
         setLinkCopied(false);
       } else {
-        alert('❌ 发送失败: ' + data.error);
+        alert('❌ 生成失败: ' + data.error);
       }
     } catch (error) {
-      alert('❌ 发送失败: ' + error);
+      alert('❌ 生成失败: ' + error);
     }
   };
 
@@ -228,21 +228,23 @@ export default function SalesPartnersPage() {
                 </button>
               </div>
 
-              {/* Generated Link Display */}
+              {/* Generated Link Display - Simplified */}
               {generatedLink && inviteForm?.partnerId === partner.id && (
-                <div className="mt-4 p-4 bg-green-50 dark:bg-green-500/10 border border-green-200 rounded-lg mb-4">
-                  <h4 className="font-bold text-green-700 dark:text-green-400 mb-2">✅ 邀请链接已生成</h4>
-                  <div className="flex gap-2 items-start">
-                    <div className="flex-1 bg-white dark:bg-[#1e1e1e] p-3 rounded border border-green-200 break-all text-xs text-text-secondary font-mono">
-                      {generatedLink}
-                    </div>
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 rounded-lg mb-4">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedLink}
+                      className="flex-1 px-2 py-1 bg-white dark:bg-[#1e1e1e] border border-blue-200 rounded text-xs font-mono text-text-secondary"
+                    />
                     <button
                       onClick={async () => {
                         await navigator.clipboard.writeText(generatedLink);
                         setLinkCopied(true);
                         setTimeout(() => setLinkCopied(false), 2000);
                       }}
-                      className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors whitespace-nowrap"
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
                     >
                       {linkCopied ? (
                         <>
@@ -255,74 +257,52 @@ export default function SalesPartnersPage() {
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-green-700 dark:text-green-400 mt-2">
-                    可以通过邮件、短信或其他方式发送此链接给被邀请者
-                  </p>
                 </div>
               )}
 
-              {/* Invite Form */}
+              {/* Invite Form - Simplified */}
               {inviteForm?.partnerId === partner.id && !generatedLink && (
                 <div className="mt-4 border-t border-border-primary pt-4">
-                  <h4 className="font-bold text-text-primary mb-3">发送邀请</h4>
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-text-muted mb-1">邮箱 (可选)</label>
+                        <label className="block text-xs text-text-muted mb-1">邮箱或手机</label>
                         <input
-                          type="email"
+                          type="text"
                           className={inputCls}
-                          placeholder="邮箱地址"
-                          value={inviteForm.email}
-                          onChange={(e) =>
-                            setInviteForm({ ...inviteForm, email: e.target.value })
-                          }
+                          placeholder="邮箱地址或手机号"
+                          value={inviteForm.email || inviteForm.phone}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            // 简单判断是否为邮箱
+                            if (val.includes('@')) {
+                              setInviteForm({ ...inviteForm, email: val, phone: '' });
+                            } else {
+                              setInviteForm({ ...inviteForm, phone: val, email: '' });
+                            }
+                          }}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-text-muted mb-1">手机 (可选)</label>
-                        <input
-                          type="tel"
+                        <label className="block text-xs text-text-muted mb-1">邀请类型</label>
+                        <select
                           className={inputCls}
-                          placeholder="手机号码"
-                          value={inviteForm.phone}
+                          value={inviteForm.type}
                           onChange={(e) =>
-                            setInviteForm({ ...inviteForm, phone: e.target.value })
+                            setInviteForm({ ...inviteForm, type: e.target.value })
                           }
-                        />
+                        >
+                          <option value="USER">用户</option>
+                          <option value="SERVICE_PROVIDER">服务商</option>
+                        </select>
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-text-muted mb-1">名称 (可选)</label>
-                      <input
-                        type="text"
-                        className={inputCls}
-                        placeholder="被邀请人名称"
-                        value={inviteForm.name}
-                        onChange={(e) =>
-                          setInviteForm({ ...inviteForm, name: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-text-muted mb-1">邀请类型</label>
-                      <select
-                        className={inputCls}
-                        value={inviteForm.type}
-                        onChange={(e) =>
-                          setInviteForm({ ...inviteForm, type: e.target.value })
-                        }
-                      >
-                        <option value="USER">用户</option>
-                        <option value="SERVICE_PROVIDER">服务商</option>
-                      </select>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={sendInvite}
                         className="flex-1 px-3 py-2 bg-[#0d9488] text-white text-sm rounded-lg hover:bg-[#0a7c71] transition-colors font-medium"
                       >
-                        发送邀请
+                        生成邀请链接
                       </button>
                       <button
                         onClick={() => {
