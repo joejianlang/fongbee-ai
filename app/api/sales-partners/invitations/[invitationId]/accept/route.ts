@@ -9,7 +9,7 @@ const acceptInvitationSchema = z.object({
 
 /**
  * POST /api/sales-partners/invitations/[invitationId]/accept
- * 用户或服务商接受销售合伙人的邀请
+ * 用户、服务商或销售合伙人接受邀请
  * 这会将用户/服务商绑定到销售合伙人
  * 约束: 一个用户/服务商只能绑定一个销售合伙人
  */
@@ -111,6 +111,13 @@ export async function POST(
         where: { id: serviceProvider.id },
         data: { invitedBySalesPartnerId: invitation.partnerId },
       });
+    } else if (invitation.inviteeType === 'SALES_PARTNER') {
+      // 销售合伙人邀请：将用户绑定到邀请方的销售合伙人
+      // 被邀请的用户将通过注册流程创建自己的销售合伙人账户
+      await prisma.user.update({
+        where: { id: userId },
+        data: { invitedBySalesPartnerId: invitation.partnerId },
+      });
     }
 
     // 更新销售合伙人统计
@@ -118,23 +125,23 @@ export async function POST(
       where: { partnerId: invitation.partnerId },
       create: {
         partnerId: invitation.partnerId,
-        totalUsersInvited: invitation.inviteeType === 'USER' ? 1 : 0,
+        totalUsersInvited: invitation.inviteeType === 'USER' || invitation.inviteeType === 'SALES_PARTNER' ? 1 : 0,
         totalProvidersInvited: invitation.inviteeType === 'SERVICE_PROVIDER' ? 1 : 0,
-        weekUsersInvited: invitation.inviteeType === 'USER' ? 1 : 0,
-        monthUsersInvited: invitation.inviteeType === 'USER' ? 1 : 0,
+        weekUsersInvited: invitation.inviteeType === 'USER' || invitation.inviteeType === 'SALES_PARTNER' ? 1 : 0,
+        monthUsersInvited: invitation.inviteeType === 'USER' || invitation.inviteeType === 'SALES_PARTNER' ? 1 : 0,
       },
       update: {
         totalUsersInvited: {
-          increment: invitation.inviteeType === 'USER' ? 1 : 0,
+          increment: invitation.inviteeType === 'USER' || invitation.inviteeType === 'SALES_PARTNER' ? 1 : 0,
         },
         totalProvidersInvited: {
           increment: invitation.inviteeType === 'SERVICE_PROVIDER' ? 1 : 0,
         },
         weekUsersInvited: {
-          increment: invitation.inviteeType === 'USER' ? 1 : 0,
+          increment: invitation.inviteeType === 'USER' || invitation.inviteeType === 'SALES_PARTNER' ? 1 : 0,
         },
         monthUsersInvited: {
-          increment: invitation.inviteeType === 'USER' ? 1 : 0,
+          increment: invitation.inviteeType === 'USER' || invitation.inviteeType === 'SALES_PARTNER' ? 1 : 0,
         },
       },
     });

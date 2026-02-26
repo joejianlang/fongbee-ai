@@ -138,9 +138,9 @@ export default function SalesPartnersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">销售合伙人管理</h1>
+          <h1 className="text-3xl font-bold text-text-primary">邀请链接</h1>
           <p className="text-text-secondary mt-1">
-            通过邮件或短信邀请用户成为销售合伙人
+            为销售合伙人生成邀请链接，邀请用户、服务商或销售合伙人加入平台
           </p>
         </div>
       </div>
@@ -294,6 +294,7 @@ export default function SalesPartnersPage() {
                         >
                           <option value="USER">用户</option>
                           <option value="SERVICE_PROVIDER">服务商</option>
+                          <option value="SALES_PARTNER">销售合伙人</option>
                         </select>
                       </div>
                     </div>

@@ -7,7 +7,7 @@ const inviteSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   name: z.string().max(100).optional(),
-  type: z.enum(['USER', 'SERVICE_PROVIDER']),
+  type: z.enum(['USER', 'SERVICE_PROVIDER', 'SALES_PARTNER']),
 });
 
 /**
