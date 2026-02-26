@@ -72,6 +72,8 @@ model User {
   aiDecisionLogs       AIDecisionLog[]
   aiUsageQuotas        AIUsageQuota[]
   smsLogs              SMSLog[]
+  contentArticles      ContentArticle[]      @relation("ContentArticleCreator")  // 内容文章创建者
+  contentArticleVersions ContentArticleVersion[] @relation("ContentArticleVersionEditor")  // 内容文章版本编辑者
 
   @@index([email])
   @@index([phone])
@@ -1303,6 +1305,94 @@ model SMSTemplate {
   @@index([type])
   @@index([isActive])
   @@map("sms_templates")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Article & Content Management
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum ArticleType {
+  USER_AGREEMENT              // 用户注册协议
+  PROVIDER_AGREEMENT          // 服务商注册协议
+  PARTNER_AGREEMENT           // 销售合伙人协议
+  CONFIDENTIALITY_AGREEMENT   // 保密协议
+  ANNOUNCEMENT                // 通知公告
+  KNOWLEDGE_ARTICLE           // 知识文章/帮助文档
+  FORUM_RULES                 // 论坛协议/规则
+}
+
+enum ContentArticleStatus {
+  DRAFT       // 草稿
+  PUBLISHED   // 已发布
+  ARCHIVED    // 已归档
+}
+
+model ContentArticle {
+  id              String                  @id @default(cuid())
+  slug            String                  @unique  // URL-friendly slug
+  type            ArticleType
+  title           String
+  subtitle        String?                 // 副标题
+  description     String?                 // 文章摘要
+  content         String                  @db.Text  // 富文本内容（HTML）
+  plainText       String?                 @db.Text  // 纯文本版本（用于搜索）
+
+  // Metadata
+  author          String?                 // 作者名称
+  tags            String?                 // JSON array of tags
+  coverImage      String?                 // 封面图片URL
+
+  // Status & Publishing
+  status          ContentArticleStatus    @default(DRAFT)
+  publishedAt     DateTime?
+
+  // Statistics
+  viewCount       Int                     @default(0)
+  likeCount       Int                     @default(0)
+
+  // Timestamps
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  createdById     String?
+  createdBy       User?                   @relation("ContentArticleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Relations
+  versions        ContentArticleVersion[]
+
+  @@index([type])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([createdById])
+  @@map("content_articles")
+}
+
+// 文章版本历史（每次编辑生成新版本）
+model ContentArticleVersion {
+  id              String                  @id @default(cuid())
+  articleId       String
+  article         ContentArticle          @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  version         Int                     // 版本号 (1, 2, 3...)
+  title           String
+  subtitle        String?
+  description     String?
+  content         String                  @db.Text  // 富文本内容
+  plainText       String?                 @db.Text
+
+  // 变更记录
+  changesSummary  String?                 // 本版本的变更说明
+  previousVersion Int?                    // 前一个版本号
+
+  // 编辑者信息
+  editorId        String?
+  editor          User?                   @relation("ContentArticleVersionEditor", fields: [editorId], references: [id])
+
+  createdAt       DateTime                @default(now())
+
+  @@unique([articleId, version])
+  @@index([articleId])
+  @@index([createdAt])
+  @@map("content_article_versions")
 }
 
 model SystemConfig {
