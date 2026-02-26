@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Toggle2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { ServiceCategoryDef } from '@/lib/types';
 
 const inputBase =
@@ -11,7 +11,7 @@ export default function ServiceCategoriesPage() {
   const [categories, setCategories] = useState<ServiceCategoryDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -26,13 +26,20 @@ export default function ServiceCategoriesPage() {
 
   /* ── Fetch categories ────────────────────────────────── */
   useEffect(() => {
-    fetch('/api/admin/service-categories')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success) setCategories(res.data);
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch('/api/admin/service-categories');
+        const data = await res.json();
+        if (data.success) {
+          setCategories(data.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+    fetchCategories();
   }, []);
 
   /* ── Reset form ──────────────────────────────────────── */
@@ -46,49 +53,83 @@ export default function ServiceCategoriesPage() {
       color: '#0d9488',
       displayOrder: 0,
     });
-    setEditingId(null);
     setShowAddForm(false);
   };
 
-  /* ── Add/Update category ─────────────────────────────── */
+  /* ── Add category ────────────────────────────────────── */
   const handleSubmit = async () => {
     if (!formData.name || !formData.slug) {
       alert('请填写分类名称和slug');
       return;
     }
 
-    const res = await fetch('/api/admin/service-categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
+    try {
+      const res = await fetch('/api/admin/service-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-    const data = await res.json();
-    if (data.success) {
-      setCategories((prev) => [...prev, data.data]);
-      resetForm();
-      alert('分类创建成功！');
-    } else {
-      alert(data.error ?? '创建失败');
+      const data = await res.json();
+      if (data.success) {
+        setCategories((prev) => [...prev, data.data]);
+        resetForm();
+        alert('分类创建成功！');
+      } else {
+        alert(data.error ?? '创建失败');
+      }
+    } catch (err) {
+      console.error('Failed to create category:', err);
+      alert('创建失败');
     }
   };
 
-  /* ── Toggle active status ────────────────────────────── */
-  const toggleActive = async (cat: ServiceCategoryDef) => {
-    // Note: API doesn't have update endpoint yet, so we'll simulate
-    setCategories((prev) =>
-      prev.map((c) =>
-        c.id === cat.id ? { ...c, isActive: !c.isActive } : c
-      )
-    );
-    // In real app, would call PATCH endpoint
+  /* ── Toggle category active status ────────────────────── */
+  const toggleCategory = async (cat: ServiceCategoryDef) => {
+    try {
+      const res = await fetch(`/api/admin/service-categories/${cat.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !cat.isActive }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setCategories((prev) =>
+          prev.map((c) => (c.id === cat.id ? { ...c, isActive: !c.isActive } : c))
+        );
+      } else {
+        alert(data.error ?? '操作失败');
+      }
+    } catch (err) {
+      console.error('Failed to toggle category:', err);
+      alert('操作失败');
+    }
   };
 
   /* ── Delete category ─────────────────────────────────── */
   const deleteCategory = async (id: string) => {
     if (!confirm('确认删除该分类？此操作不可恢复。')) return;
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    // In real app, would call DELETE endpoint
+
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/admin/service-categories/${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setCategories((prev) => prev.filter((c) => c.id !== id));
+        alert('分类已删除');
+      } else {
+        alert(data.error ?? '删除失败');
+      }
+    } catch (err) {
+      console.error('Failed to delete category:', err);
+      alert('删除失败');
+    } finally {
+      setDeleting(null);
+    }
   };
 
   if (loading) {
@@ -105,17 +146,17 @@ export default function ServiceCategoriesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">服务分类管理</h1>
-          <p className="text-sm text-text-muted mt-1">管理平台上的服务分类，控制分类的开通和关闭</p>
+          <p className="text-sm text-text-muted mt-1">管理平台上的服务分类，包括开通和关闭</p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#0d9488] text-white rounded-lg hover:bg-[#0a7c71] transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0d9488] text-white rounded-lg hover:bg-[#0a7c71] transition-colors font-medium text-sm"
         >
           <Plus size={18} /> 新增分类
         </button>
       </div>
 
-      {/* Add/Edit Form */}
+      {/* Add Form */}
       {showAddForm && (
         <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm border border-border-primary p-6 space-y-4">
           <h2 className="font-semibold text-text-primary">创建新分类</h2>
@@ -179,53 +220,6 @@ export default function ServiceCategoriesPage() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5">
-              描述
-            </label>
-            <textarea
-              rows={3}
-              placeholder="分类描述..."
-              value={formData.description}
-              onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-              className={`${inputBase} resize-none`}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                图标名称 (Lucide)
-              </label>
-              <input
-                type="text"
-                placeholder="如：home, truck, leaf"
-                value={formData.icon}
-                onChange={(e) => setFormData((p) => ({ ...p, icon: e.target.value }))}
-                className={inputBase}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                颜色
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
-                  className="w-12 h-10 rounded-lg cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={formData.color}
-                  onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
-                  className={`${inputBase} flex-1`}
-                />
-              </div>
-            </div>
-          </div>
-
           <div className="flex gap-2 pt-2">
             <button
               onClick={handleSubmit}
@@ -243,83 +237,58 @@ export default function ServiceCategoriesPage() {
         </div>
       )}
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map((cat) => (
-          <div
-            key={cat.id}
-            className={`rounded-xl shadow-sm border transition-all ${
-              cat.isActive
-                ? 'border-border-primary bg-white dark:bg-[#2d2d30]'
-                : 'border-red-200 bg-red-50 dark:bg-red-950/20'
-            }`}
-          >
-            <div className="p-4 space-y-3">
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-text-primary">{cat.name}</h3>
-                  <p className="text-xs text-text-muted">{cat.nameEn}</p>
-                </div>
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
-                  style={{
-                    backgroundColor: cat.color ? `${cat.color}20` : '#0d948820',
-                    color: cat.color ?? '#0d9488',
-                  }}
-                >
-                  {cat.icon ? cat.icon.charAt(0) : '📦'}
-                </div>
+      {/* Categories List */}
+      <div className="space-y-2">
+        {categories.length === 0 ? (
+          <div className="text-center py-12 bg-white dark:bg-[#2d2d30] rounded-xl border border-border-primary">
+            <p className="text-text-muted text-sm">暂无服务分类</p>
+          </div>
+        ) : (
+          categories.map((cat) => (
+            <div
+              key={cat.id}
+              className="bg-white dark:bg-[#2d2d30] rounded-lg border border-border-primary p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+            >
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-text-primary">{cat.name}</h3>
+                <p className="text-xs text-text-muted mt-1">
+                  {cat.nameEn && <span>{cat.nameEn} • </span>}
+                  <span>slug: {cat.slug}</span>
+                  {cat._count?.formFields ? <span> • {cat._count.formFields} 个字段</span> : null}
+                </p>
               </div>
-
-              {/* Info */}
-              <div className="text-xs space-y-1 text-text-muted">
-                <p>Slug: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{cat.slug}</code></p>
-                <p>字段数: <span className="font-semibold text-text-primary">{cat._count?.formFields ?? 0}</span></p>
-                <p>排序: {cat.displayOrder}</p>
-              </div>
-
-              {/* Status badge */}
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Status badge */}
+                <button
+                  onClick={() => toggleCategory(cat)}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
                     cat.isActive
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                      : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                      ? 'bg-[#0d9488]/10 text-[#0d9488] hover:bg-[#0d9488]/20'
+                      : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-300'
                   }`}
+                  title={cat.isActive ? '点击关闭' : '点击开通'}
                 >
                   {cat.isActive ? '✓ 已开通' : '✗ 已关闭'}
-                </span>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-2 border-t border-border-primary">
-                <button
-                  onClick={() => toggleActive(cat)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-border-primary text-text-secondary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                  title={cat.isActive ? '关闭分类' : '开通分类'}
-                >
-                  <Toggle2 size={14} />
-                  {cat.isActive ? '关闭' : '开通'}
                 </button>
+
+                {/* Delete button */}
                 <button
                   onClick={() => deleteCategory(cat.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  disabled={deleting === cat.id}
+                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                  title="删除分类"
                 >
-                  <Trash2 size={14} />
-                  删除
+                  {deleting === cat.id ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
                 </button>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
-
-      {categories.length === 0 && !showAddForm && (
-        <div className="text-center py-12 text-text-muted">
-          <p className="text-sm">暂无服务分类，点击「新增分类」开始创建</p>
-        </div>
-      )}
     </div>
   );
 }

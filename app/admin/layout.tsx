@@ -7,33 +7,66 @@ import {
   LayoutDashboard,
   Package,
   List,
-  FileText,
   Users,
   BarChart3,
   Settings,
-  FormInput,
-  Layers,
   Menu,
   X,
+  ChevronDown,
   LucideIcon,
 } from 'lucide-react';
 
 interface MenuItem {
-  href: string;
+  href?: string;
   label: string;
   icon: LucideIcon;
+  children?: Array<{ href: string; label: string }>;
 }
 
 const menuItems: MenuItem[] = [
   { href: '/admin', label: '控制台', icon: LayoutDashboard },
-  { href: '/admin/service-categories', label: '服务分类管理', icon: Layers },
-  { href: '/admin/orders', label: '订单管理', icon: Package },
-  { href: '/admin/custom-requests', label: '定制需求', icon: List },
-  { href: '/admin/payment-policies', label: '支付政策', icon: FileText },
-  { href: '/admin/form-builder', label: '表单构建器', icon: FormInput },
-  { href: '/admin/users', label: '用户管理', icon: Users },
+
+  // 标准服务管理
+  {
+    label: '标准服务管理',
+    icon: Package,
+    children: [
+      { href: '/admin/orders', label: '订单管理' },
+      { href: '/admin/payment-policies', label: '支付政策' },
+    ],
+  },
+
+  // 定制服务管理
+  {
+    label: '定制服务管理',
+    icon: List,
+    children: [
+      { href: '/admin/custom-requests', label: '定制需求' },
+      { href: '/admin/form-builder', label: '表单构建器' },
+    ],
+  },
+
+  // 用户管理
+  {
+    label: '用户管理',
+    icon: Users,
+    children: [
+      { href: '/admin/users', label: '用户列表' },
+    ],
+  },
+
+  // 财务报表
   { href: '/admin/finance', label: '财务报表', icon: BarChart3 },
-  { href: '/admin/settings', label: '系统设置', icon: Settings },
+
+  // 系统管理
+  {
+    label: '系统管理',
+    icon: Settings,
+    children: [
+      { href: '/admin/service-categories', label: '服务分类' },
+      { href: '/admin/settings', label: '系统设置' },
+    ],
+  },
 ];
 
 export default function AdminLayout({
@@ -41,58 +74,123 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const pathname = usePathname();
+
+  const toggleMenu = (label: string) => {
+    setExpandedMenu(expandedMenu === label ? null : label);
+  };
+
+  const isMenuActive = (item: MenuItem): boolean => {
+    if (item.href) {
+      return pathname === item.href;
+    }
+    if (item.children) {
+      return item.children.some((child) => pathname === child.href);
+    }
+    return false;
+  };
 
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <aside
         className={`${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } bg-nav-bg text-nav-text transition-all duration-300 flex flex-col`}
+          isCollapsed ? 'w-20' : 'w-64'
+        } bg-nav-bg text-nav-text transition-all duration-300 flex flex-col flex-shrink-0 border-r border-white/10`}
       >
         {/* Logo */}
-        <div className="p-6 border-b border-black/10">
+        <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
           <h1
-            className={`font-bold ${
-              sidebarOpen ? 'text-xl' : 'text-center text-lg'
+            className={`font-bold whitespace-nowrap overflow-hidden text-ellipsis ${
+              isCollapsed ? 'text-sm' : 'text-sm'
             }`}
           >
-            {sidebarOpen ? '优服佳' : '优'}
+            {isCollapsed ? '优' : '优服佳 / 后台'}
           </h1>
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-          {menuItems.map((item) => {
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1">
+          {menuItems.map((item, idx) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = isMenuActive(item);
+            const isExpanded = expandedMenu === item.label;
+            const hasChildren = !!item.children;
 
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-[#0d9488] text-white'
-                    : 'text-white/85 hover:text-white hover:bg-white/15'
-                }`}
-              >
-                <Icon size={20} />
-                {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-              </Link>
+              <div key={`${item.label}-${idx}`}>
+                {hasChildren ? (
+                  // Menu group
+                  <div>
+                    <button
+                      onClick={() => toggleMenu(item.label)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
+                        isActive
+                          ? 'bg-[rgba(13,148,136,0.18)] text-white border-r-[3px] border-[#0d9488]'
+                          : 'text-white/85 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon size={20} className="flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1 text-left">{item.label}</span>
+                          <ChevronDown
+                            size={16}
+                            className={`transition-transform flex-shrink-0 ${
+                              isExpanded ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </>
+                      )}
+                    </button>
+                    {/* Submenu */}
+                    {isExpanded && !isCollapsed && item.children && (
+                      <div className="bg-black/12 ml-0 mt-1 rounded-lg overflow-hidden">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.href}
+                            href={child.href || '#'}
+                            className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                              pathname === child.href
+                                ? 'bg-[rgba(13,148,136,0.18)] text-white font-medium'
+                                : 'text-white/70 hover:text-white hover:bg-white/5'
+                            }`}
+                          >
+                            <span>{child.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Direct link
+                  <Link
+                    href={item.href || '#'}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
+                      isActive
+                        ? 'bg-[rgba(13,148,136,0.18)] text-white border-r-[3px] border-[#0d9488]'
+                        : 'text-white/85 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon size={20} className="flex-shrink-0" />
+                    {!isCollapsed && <span>{item.label}</span>}
+                  </Link>
+                )}
+              </div>
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-black/10">
+        <div className="p-2 border-t border-white/10 flex-shrink-0">
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full flex items-center justify-center py-2 rounded-lg hover:bg-white/10"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full flex items-center justify-center py-2.5 rounded-lg hover:bg-white/10 transition-colors"
+            title={isCollapsed ? '展开菜单' : '折叠菜单'}
           >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            {isCollapsed ? <Menu size={20} /> : <X size={20} />}
           </button>
         </div>
       </aside>
