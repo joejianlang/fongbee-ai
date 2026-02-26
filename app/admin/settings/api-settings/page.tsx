@@ -1,124 +1,328 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, RefreshCw, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Copy, Eye, EyeOff, AlertCircle, Save } from 'lucide-react';
 
-interface APIKey {
+interface APIConfig {
   id: string;
+  service: string;
   name: string;
-  key: string;
+  value: string;
   masked: string;
-  permissions: string[];
-  createdAt: string;
-  lastUsed: string;
-  status: 'ACTIVE' | 'INACTIVE';
+  description: string;
+  required: boolean;
+  status: 'CONFIGURED' | 'NOT_CONFIGURED' | 'INVALID';
 }
 
-const MOCK_KEYS: APIKey[] = [
+const API_CONFIGS: APIConfig[] = [
+  // OpenAI & AI Models
   {
-    id: 'KEY001',
-    name: '主 API 密钥',
-    key: 'sk_live_abcd1234efgh5678ijkl9012mnop',
+    id: 'openai-key',
+    service: 'OpenAI',
+    name: 'OpenAI API Key',
+    value: 'sk_live_••••••••••••••••••••••••••••••••',
     masked: 'sk_live_••••••••••••••••••••••••••••••••',
-    permissions: ['read', 'write', 'admin'],
-    createdAt: '2025-06-15',
-    lastUsed: '2025-12-15 14:32',
-    status: 'ACTIVE',
+    description: 'GPT-4 和 GPT-3.5 Turbo 模型的 API 密钥',
+    required: true,
+    status: 'CONFIGURED',
   },
   {
-    id: 'KEY002',
-    name: '测试环境密钥',
-    key: 'sk_test_xyz7890uvwab1234cdef5678ghij',
-    masked: 'sk_test_••••••••••••••••••••••••••••••••',
-    permissions: ['read', 'write'],
-    createdAt: '2025-08-01',
-    lastUsed: '2025-12-14 09:15',
-    status: 'ACTIVE',
+    id: 'anthropic-key',
+    service: 'Anthropic',
+    name: 'Claude API Key',
+    value: 'sk_••••••••••••••••••••••••••••••••',
+    masked: 'sk_••••••••••••••••••••••••••••••••',
+    description: 'Claude 3 系列模型的 API 密钥',
+    required: false,
+    status: 'CONFIGURED',
+  },
+
+  // YouTube
+  {
+    id: 'youtube-key',
+    service: 'YouTube',
+    name: 'YouTube Data API Key',
+    value: 'AIza••••••••••••••••••••••••••••••••',
+    masked: 'AIza••••••••••••••••••••••••••••••••',
+    description: '用于获取 YouTube 视频和频道数据',
+    required: true,
+    status: 'CONFIGURED',
+  },
+
+  // SMS - Twilio
+  {
+    id: 'twilio-sid',
+    service: 'Twilio SMS',
+    name: 'Twilio Account SID',
+    value: 'AC••••••••••••••••••••••••••••••••',
+    masked: 'AC••••••••••••••••••••••••••••••••',
+    description: 'Twilio 账户 SID',
+    required: true,
+    status: 'CONFIGURED',
   },
   {
-    id: 'KEY003',
-    name: '旧密钥',
-    key: '••••••••••••••••••••••••••••••••',
+    id: 'twilio-token',
+    service: 'Twilio SMS',
+    name: 'Twilio Auth Token',
+    value: '••••••••••••••••••••••••••••••••',
     masked: '••••••••••••••••••••••••••••••••',
-    permissions: ['read'],
-    createdAt: '2025-03-10',
-    lastUsed: '2025-06-01 10:00',
-    status: 'INACTIVE',
+    description: 'Twilio 身份验证令牌',
+    required: true,
+    status: 'CONFIGURED',
+  },
+  {
+    id: 'twilio-phone',
+    service: 'Twilio SMS',
+    name: 'Twilio Phone Number',
+    value: '+1••••••••••',
+    masked: '+1••••••••••',
+    description: '用于发送短信的电话号码',
+    required: true,
+    status: 'CONFIGURED',
+  },
+
+  // Email - SendGrid
+  {
+    id: 'sendgrid-key',
+    service: 'SendGrid Email',
+    name: 'SendGrid API Key',
+    value: 'SG.••••••••••••••••••••••••••••••••',
+    masked: 'SG.••••••••••••••••••••••••••••••••',
+    description: 'SendGrid 邮件服务 API 密钥',
+    required: true,
+    status: 'CONFIGURED',
+  },
+
+  // Database - Supabase
+  {
+    id: 'supabase-url',
+    service: 'Supabase',
+    name: 'Supabase Project URL',
+    value: 'https://••••••.supabase.co',
+    masked: 'https://••••••.supabase.co',
+    description: 'Supabase 数据库项目 URL',
+    required: true,
+    status: 'CONFIGURED',
+  },
+  {
+    id: 'supabase-key',
+    service: 'Supabase',
+    name: 'Supabase Anon Key',
+    value: 'eyJhbGciOiJIUzI1NiIsInR5••••••••••',
+    masked: 'eyJhbGciOiJIUzI1NiIsInR5••••••••••',
+    description: 'Supabase 匿名公钥',
+    required: true,
+    status: 'CONFIGURED',
+  },
+  {
+    id: 'supabase-service-key',
+    service: 'Supabase',
+    name: 'Supabase Service Role Key',
+    value: 'eyJhbGciOiJIUzI1NiIsInR5••••••••••',
+    masked: 'eyJhbGciOiJIUzI1NiIsInR5••••••••••',
+    description: 'Supabase 服务角色密钥（仅服务器端使用）',
+    required: true,
+    status: 'CONFIGURED',
+  },
+
+  // Storage - AWS S3
+  {
+    id: 'aws-access-key',
+    service: 'AWS S3',
+    name: 'AWS Access Key ID',
+    value: 'AKIA••••••••••••••••••',
+    masked: 'AKIA••••••••••••••••••',
+    description: 'AWS 访问密钥 ID',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+  {
+    id: 'aws-secret-key',
+    service: 'AWS S3',
+    name: 'AWS Secret Access Key',
+    value: '••••••••••••••••••••••••••••••••',
+    masked: '••••••••••••••••••••••••••••••••',
+    description: 'AWS 密钥',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+  {
+    id: 'aws-region',
+    service: 'AWS S3',
+    name: 'AWS Region',
+    value: 'us-east-1',
+    masked: 'us-east-1',
+    description: 'AWS S3 桶区域',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+
+  // Payment - Stripe
+  {
+    id: 'stripe-public-key',
+    service: 'Stripe Payment',
+    name: 'Stripe Publishable Key',
+    value: 'pk_live_••••••••••••••••••••••••••••••••',
+    masked: 'pk_live_••••••••••••••••••••••••••••••••',
+    description: '客户端使用的公钥',
+    required: false,
+    status: 'NOT_CONFIGURED',
+  },
+  {
+    id: 'stripe-secret-key',
+    service: 'Stripe Payment',
+    name: 'Stripe Secret Key',
+    value: 'sk_live_••••••••••••••••••••••••••••••••',
+    masked: 'sk_live_••••••••••••••••••••••••••••••••',
+    description: '服务器端使用的密钥',
+    required: false,
+    status: 'NOT_CONFIGURED',
   },
 ];
 
+const groupedConfigs = API_CONFIGS.reduce((acc, config) => {
+  if (!acc[config.service]) {
+    acc[config.service] = [];
+  }
+  acc[config.service].push(config);
+  return acc;
+}, {} as Record<string, APIConfig[]>);
+
 export default function APISettingsPage() {
   const [showKey, setShowKey] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const configuredCount = API_CONFIGS.filter((c) => c.status === 'CONFIGURED').length;
+  const notConfiguredCount = API_CONFIGS.filter((c) => c.status === 'NOT_CONFIGURED').length;
+  const requiredCount = API_CONFIGS.filter((c) => c.required).length;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-text-primary">API 设置</h1>
-          <p className="text-text-secondary mt-1">管理 API 密钥和权限</p>
+          <p className="text-text-secondary mt-1">集中管理所有服务 API 密钥</p>
         </div>
-        <button className="px-4 py-2.5 bg-[#0d9488] text-white rounded-lg font-medium hover:bg-[#0a7c71] transition-colors">
-          + 生成新密钥
+        <button
+          onClick={handleSave}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            saved
+              ? 'bg-green-500 text-white'
+              : 'bg-[#0d9488] text-white hover:bg-[#0a7c71]'
+          }`}
+        >
+          <Save size={15} />
+          {saved ? '已保存 ✓' : '保存配置'}
         </button>
       </div>
 
-      <div className="space-y-4">
-        {MOCK_KEYS.map((apiKey) => (
-          <div key={apiKey.id} className="bg-card border border-card-border rounded-lg p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-text-primary mb-1">{apiKey.name}</h3>
-                <p className="text-xs text-text-muted">
-                  创建于：{apiKey.createdAt} · 最后使用：{apiKey.lastUsed}
-                </p>
-              </div>
-              <span className={`px-3 py-1 rounded text-xs font-medium ${apiKey.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                {apiKey.status === 'ACTIVE' ? '已激活' : '未激活'}
-              </span>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-green-50 rounded-xl px-5 py-4">
+          <p className="text-2xl font-bold text-green-600">{configuredCount}</p>
+          <p className="text-sm text-text-secondary">已配置</p>
+        </div>
+        <div className="bg-yellow-50 rounded-xl px-5 py-4">
+          <p className="text-2xl font-bold text-yellow-600">{notConfiguredCount}</p>
+          <p className="text-sm text-text-secondary">未配置</p>
+        </div>
+        <div className="bg-blue-50 rounded-xl px-5 py-4">
+          <p className="text-2xl font-bold text-blue-600">{requiredCount}</p>
+          <p className="text-sm text-text-secondary">必需项</p>
+        </div>
+      </div>
+
+      {/* Warning for missing required configs */}
+      {notConfiguredCount > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 flex gap-3">
+          <AlertCircle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-yellow-800">有未配置的 API 密钥</p>
+            <p className="text-xs text-yellow-700 mt-1">请确保所有必需的 API 密钥已正确配置</p>
+          </div>
+        </div>
+      )}
+
+      {/* API Configs by Service */}
+      <div className="space-y-6">
+        {Object.entries(groupedConfigs).map(([service, configs]) => (
+          <div key={service} className="bg-card border border-card-border rounded-lg overflow-hidden">
+            <div className="bg-card-border/50 px-6 py-3 border-b border-card-border">
+              <h2 className="text-base font-bold text-text-primary">{service}</h2>
             </div>
 
-            <div className="mb-4 p-3 bg-background rounded-lg font-mono text-sm text-text-primary flex items-center justify-between">
-              <span>
-                {showKey === apiKey.id ? apiKey.key : apiKey.masked}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowKey(showKey === apiKey.id ? null : apiKey.id)}
-                  className="p-1 rounded hover:bg-card-border transition-colors"
-                >
-                  {showKey === apiKey.id ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-                <button className="p-1 rounded hover:bg-card-border transition-colors">
-                  <Copy size={16} />
-                </button>
-              </div>
-            </div>
+            <div className="p-6 space-y-4">
+              {configs.map((config) => (
+                <div key={config.id} className="border border-card-border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-text-primary">{config.name}</h3>
+                        {config.required && (
+                          <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700 font-medium">
+                            必需
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-secondary">{config.description}</p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded text-xs font-medium flex-shrink-0 ${
+                        config.status === 'CONFIGURED'
+                          ? 'bg-green-100 text-green-700'
+                          : config.status === 'INVALID'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {config.status === 'CONFIGURED' && '已配置'}
+                      {config.status === 'NOT_CONFIGURED' && '未配置'}
+                      {config.status === 'INVALID' && '无效'}
+                    </span>
+                  </div>
 
-            <div className="mb-4">
-              <p className="text-xs font-medium text-text-secondary mb-2">权限：</p>
-              <div className="flex flex-wrap gap-2">
-                {apiKey.permissions.map((perm) => (
-                  <span key={perm} className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
-                    {perm === 'read' && '读取'}
-                    {perm === 'write' && '写入'}
-                    {perm === 'admin' && '管理员'}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-3 border-t border-card-border">
-              <button className="px-3 py-1.5 text-sm rounded font-medium bg-[#0d9488]/10 text-[#0d9488] hover:bg-[#0d9488]/20 flex items-center gap-1">
-                <RefreshCw size={14} />
-                重新生成
-              </button>
-              <button className="px-3 py-1.5 text-sm rounded font-medium text-red-600 hover:bg-red-50 flex items-center gap-1">
-                <Trash2 size={14} />
-                删除
-              </button>
+                  <div className="p-3 bg-background rounded-lg font-mono text-sm text-text-primary flex items-center justify-between">
+                    <span className="truncate">
+                      {showKey === config.id ? config.value : config.masked}
+                    </span>
+                    <div className="flex gap-2 flex-shrink-0 ml-2">
+                      <button
+                        onClick={() => setShowKey(showKey === config.id ? null : config.id)}
+                        className="p-1 rounded hover:bg-card-border transition-colors"
+                        title={showKey === config.id ? '隐藏' : '显示'}
+                      >
+                        {showKey === config.id ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                      <button
+                        className="p-1 rounded hover:bg-card-border transition-colors"
+                        title="复制"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Best Practices */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+        <h3 className="text-sm font-bold text-blue-900">✅ 最佳实践</h3>
+        <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+          <li>确保所有密钥都存储在环境变量中，从不在代码中硬编码</li>
+          <li>定期轮换 API 密钥以提高安全性</li>
+          <li>使用最小权限原则，仅授予必要的权限</li>
+          <li>监控 API 使用情况，检测异常活动</li>
+          <li>为生产环境使用单独的 API 密钥</li>
+        </ul>
       </div>
     </div>
   );
