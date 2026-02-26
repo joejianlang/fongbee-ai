@@ -13,6 +13,7 @@ const inviteSchema = z.object({
 /**
  * POST /api/admin/sales-partners/[id]/invite
  * 销售合伙人发送邀请（生成邀请链接和邀请码）
+ * 根据邀请类型和联系方式选择对应的模板
  */
 export async function POST(
   req: NextRequest,
@@ -29,6 +30,49 @@ export async function POST(
 
     if (!partner) {
       return NextResponse.json({ success: false, error: '销售合伙人不存在' }, { status: 404 });
+    }
+
+    const contact = data.email || data.phone;
+    if (!contact) {
+      return NextResponse.json({ success: false, error: '邮箱和手机号至少填一个' }, { status: 400 });
+    }
+
+    // 检查用户是否已存在
+    let existingUser = null;
+    if (data.email) {
+      existingUser = await prisma.user.findUnique({
+        where: { email: data.email },
+        include: { serviceProvider: true, salesPartner: true },
+      });
+    } else if (data.phone) {
+      existingUser = await prisma.user.findUnique({
+        where: { phone: data.phone },
+        include: { serviceProvider: true, salesPartner: true },
+      });
+    }
+
+    // 如果用户已存在，检查是否已有该角色
+    if (existingUser) {
+      if (data.type === 'USER') {
+        return NextResponse.json(
+          { success: false, error: `用户已存在，无法重复注册用户角色。该用户邮箱: ${existingUser.email || existingUser.phone}` },
+          { status: 400 }
+        );
+      } else if (data.type === 'SERVICE_PROVIDER') {
+        if (existingUser.serviceProvider) {
+          return NextResponse.json(
+            { success: false, error: `该用户已是服务商，无法重复注册服务商角色。该用户邮箱: ${existingUser.email || existingUser.phone}` },
+            { status: 400 }
+          );
+        }
+      } else if (data.type === 'SALES_PARTNER') {
+        if (existingUser.salesPartner) {
+          return NextResponse.json(
+            { success: false, error: `该用户已是销售合伙人，无法重复注册销售合伙人角色。该用户邮箱: ${existingUser.email || existingUser.phone}` },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // 邀请过期时间（30天后）
@@ -48,18 +92,47 @@ export async function POST(
       },
     });
 
-    // 生成销售合伙人注册链接（包含邀请码和合伙人的referralCode）
+    // 生成邀请链接
     const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/register/sales-partner?referral=${partner.referralCode}&invitation=${invitation.id}`;
 
-    // 获取短信模板（发送邀请SMS）
-    const smsTemplate = await prisma.sMSTemplate.findUnique({
-      where: { type: 'PROVIDER_INVITE' },
-    });
+    // 根据邀请类型和联系方式选择对应的模板并发送
+    if (data.email) {
+      // 根据邀请类型选择邮件模板
+      let emailTemplateType;
+      switch (data.type) {
+        case 'USER':
+          emailTemplateType = 'USER_INVITATION';
+          break;
+        case 'SERVICE_PROVIDER':
+          emailTemplateType = 'PROVIDER_INVITATION';
+          break;
+        case 'SALES_PARTNER':
+          emailTemplateType = 'SALES_INVITATION';
+          break;
+      }
 
-    if (smsTemplate && (data.phone || data.email)) {
-      // TODO: 发送短信邀请
-      // 这里可以根据类型发送不同的邀请消息
-      console.log(`📱 SMS邀请将发送到: ${data.phone || data.email}`);
+      const emailTemplate = await prisma.emailTemplate.findUnique({
+        where: { type: emailTemplateType as any },
+      });
+
+      if (emailTemplate && emailTemplate.isActive) {
+        // TODO: 发送邮件邀请
+        console.log(`📧 邮件邀请将发送到: ${data.email}`);
+        console.log(`   模板: ${emailTemplateType}`);
+        console.log(`   链接: ${invitationLink}`);
+      }
+    } else if (data.phone) {
+      // 短信只有服务商邀请模板，其他类型用通用提示
+      const smsTemplate = await prisma.sMSTemplate.findUnique({
+        where: { type: 'PROVIDER_INVITE' },
+      });
+
+      if (smsTemplate && smsTemplate.isActive) {
+        // TODO: 发送短信邀请
+        console.log(`📱 短信邀请将发送到: ${data.phone}`);
+        console.log(`   邀请类型: ${data.type}`);
+        console.log(`   链接: ${invitationLink}`);
+      }
     }
 
     // Admin log
@@ -72,7 +145,8 @@ export async function POST(
           partnerId: partner.id,
           inviteeEmail: data.email,
           inviteePhone: data.phone,
-          type: data.type,
+          inviteeType: data.type,
+          contact: data.email || data.phone,
         }),
       },
     });
@@ -86,6 +160,13 @@ export async function POST(
         expiresAt: expiresAt.toISOString(),
         target: data.email || data.phone,
         type: data.type,
+        templateType: data.email
+          ? data.type === 'USER'
+            ? 'USER_INVITATION'
+            : data.type === 'SERVICE_PROVIDER'
+              ? 'PROVIDER_INVITATION'
+              : 'SALES_INVITATION'
+          : 'PROVIDER_INVITE',
       },
     });
   } catch (error) {
