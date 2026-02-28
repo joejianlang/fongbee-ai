@@ -75,7 +75,8 @@ export default function CategoryTabBar({ active, onChange }: CategoryTabBarProps
     <nav
       aria-label="新闻分类"
       spellCheck={false}
-      className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary shadow-sm"
+      className="sticky z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary shadow-sm"
+      style={{ top: 'var(--header-h, 56px)' }}
     >
       <div className="flex items-center gap-1.5 px-2 py-2">
         {/* Left arrow */}

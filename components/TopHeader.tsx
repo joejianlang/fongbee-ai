@@ -23,7 +23,10 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   const tNav      = useTranslations('nav');
   const locale    = useLocale();
   const { data: session } = useSession();
-  const isAdmin   = (session?.user as { role?: string })?.role === 'ADMIN';
+  const isAdmin          = (session?.user as { role?: string })?.role === 'ADMIN';
+  const isAuthenticated  = !!session;
+
+  const headerRef = useRef<HTMLElement>(null);
 
   const [dark,    setDark]    = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -52,6 +55,17 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   useEffect(() => {
     const saved = localStorage.getItem('selectedCity') ?? 'Guelph';
     setCity(saved);
+  }, []);
+
+  /* ── Header 高度变化 → CSS 变量 --header-h ── */
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--header-h', el.offsetHeight + 'px');
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   /* ── 点击外部关闭城市下拉 ── */
@@ -86,7 +100,7 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-[#0d9488] shadow-md">
+    <header ref={headerRef} className="fixed top-0 left-0 right-0 z-50 bg-[#0d9488] shadow-md">
       {/* ── 跳转到主内容（无障碍） ── */}
       <a
         href="#main-content"
@@ -236,7 +250,7 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
           aria-label="移动端菜单"
           className="md:hidden bg-[#0a7c71] border-t border-white/10"
         >
-          {/* 搜索框 */}
+          {/* 搜索框（始终显示） */}
           <div className="px-4 py-3">
             <form
               onSubmit={(e) => e.preventDefault()}
@@ -253,27 +267,50 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
               />
             </form>
           </div>
-          {/* 导航链接 */}
-          {NAV_LINKS.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-3 px-6 py-3 text-white/90 hover:bg-white/10 transition-colors"
-            >
-              <Icon size={18} />
-              <span className="text-sm font-medium">{label}</span>
-            </Link>
-          ))}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-3 px-6 py-3 text-white/90 hover:bg-white/10 transition-colors border-t border-white/10"
-            >
-              <Settings size={18} />
-              <span className="text-sm font-medium">{t('adminCenter')}</span>
-            </Link>
+
+          {/* 未登录：显示登录 / 注册按钮 */}
+          {!isAuthenticated ? (
+            <div className="px-4 pb-4 flex gap-3">
+              <Link
+                href="/auth/login"
+                onClick={() => setMenuOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-white/40 text-white text-sm font-semibold text-center hover:bg-white/10 transition-colors"
+              >
+                登录
+              </Link>
+              <Link
+                href="/auth/register"
+                onClick={() => setMenuOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-white text-[#0d9488] text-sm font-semibold text-center hover:bg-white/90 transition-colors"
+              >
+                注册
+              </Link>
+            </div>
+          ) : (
+            /* 已登录：显示导航链接 */
+            <>
+              {NAV_LINKS.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-6 py-3 text-white/90 hover:bg-white/10 transition-colors"
+                >
+                  <Icon size={18} />
+                  <span className="text-sm font-medium">{label}</span>
+                </Link>
+              ))}
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-6 py-3 text-white/90 hover:bg-white/10 transition-colors border-t border-white/10"
+                >
+                  <Settings size={18} />
+                  <span className="text-sm font-medium">{t('adminCenter')}</span>
+                </Link>
+              )}
+            </>
           )}
         </nav>
       )}
