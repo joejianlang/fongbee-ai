@@ -91,19 +91,19 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
 
   /* ── Compact layout (default) ── */
   return (
-    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-2.5 md:mb-0 shadow-sm md:shadow-none overflow-hidden">
-      <div className="flex gap-3 p-3 md:py-4 md:px-0">
+    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden">
+      <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
         {/* ── 缩略图 ── */}
         <div className="flex-shrink-0 relative">
-          <div className="w-24 h-24 md:w-[110px] md:h-[80px] rounded-lg md:rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700">
+          <div className="w-32 h-24 md:w-[200px] md:h-[130px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
             {article.imageUrl ? (
               <Image
                 src={article.imageUrl}
                 alt={`${article.sourceName} - ${article.title}`}
                 fill
                 className="object-cover"
-                sizes="(max-width: 768px) 96px, 110px"
+                sizes="(max-width: 768px) 128px, 200px"
                 unoptimized
               />
             ) : (
@@ -124,8 +124,8 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         {/* ── 内容区 ── */}
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           {/* meta 行：来源 · 分类 · 时间 */}
-          <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1">
-            <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold max-w-[110px] truncate">
+          <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1.5">
+            <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold max-w-[120px] truncate uppercase tracking-wide">
               {article.sourceName}
             </span>
             <span className="text-text-muted">·</span>
@@ -135,7 +135,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
           </div>
 
           {/* 标题 */}
-          <h2 className="text-text-primary dark:text-white text-sm font-semibold leading-snug line-clamp-2 mb-2">
+          <h2 className="text-text-primary dark:text-white text-[15px] font-semibold leading-snug line-clamp-2 mb-2">
             {article.title}
           </h2>
 
