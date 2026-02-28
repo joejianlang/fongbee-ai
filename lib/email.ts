@@ -1,4 +1,4 @@
-import { EmailTemplateType } from '@prisma/client';
+import { Resend } from 'resend';
 
 interface EmailPayload {
   to: string;
@@ -6,53 +6,37 @@ interface EmailPayload {
   htmlContent: string;
 }
 
+// Lazily instantiate so missing key just logs a warning at call time
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
+
 /**
- * Send email using SendGrid
+ * Send email using Resend
  */
 export async function sendEmail(payload: EmailPayload): Promise<void> {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn('⚠️  SENDGRID_API_KEY not configured, skipping email send');
+    console.warn('⚠️  RESEND_API_KEY not configured, skipping email send');
     return;
   }
 
-  try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email: payload.to }],
-          },
-        ],
-        from: {
-          email: process.env.SENDGRID_FROM_EMAIL || 'noreply@youfujia.ca',
-          name: '优服佳 Youfujia',
-        },
-        subject: payload.subject,
-        content: [
-          {
-            type: 'text/html',
-            value: payload.htmlContent,
-          },
-        ],
-      }),
-    });
+  const from =
+    process.env.RESEND_FROM_EMAIL ||
+    'onboarding@resend.dev'; // Resend sandbox default (sends to account email only)
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`SendGrid error: ${response.status} - ${error}`);
-    }
+  const { error } = await getResend().emails.send({
+    from,
+    to: payload.to,
+    subject: payload.subject,
+    html: payload.htmlContent,
+  });
 
-    console.log(`✅ Email sent to ${payload.to}`);
-  } catch (error) {
-    console.error('❌ Failed to send email:', error);
-    throw error;
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
   }
+
+  console.log(`✅ Email sent to ${payload.to}`);
 }
 
 /**
