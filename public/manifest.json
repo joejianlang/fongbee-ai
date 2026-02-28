@@ -10,77 +10,25 @@
   "lang": "zh-CN",
   "scope": "/",
   "categories": ["lifestyle", "utilities", "news"],
-  "icons": [
-    {
-      "src": "/icons/icon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable any"
-    }
-  ],
+  "icons": [],
   "shortcuts": [
     {
       "name": "新闻资讯",
       "short_name": "资讯",
       "description": "查看 AI 精选新闻",
-      "url": "/app/feed",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "url": "/app/feed"
     },
     {
       "name": "预约服务",
       "short_name": "服务",
       "description": "浏览并预约本地服务",
-      "url": "/app/services",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "url": "/app/services"
     },
     {
       "name": "社区论坛",
       "short_name": "社区",
       "description": "查看本地社区帖子",
-      "url": "/app/forum",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+      "url": "/app/forum"
     }
   ],
   "screenshots": [],
