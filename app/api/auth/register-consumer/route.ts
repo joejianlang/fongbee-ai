@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { hash } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { verifyCode } from '@/lib/register-code-store';
 
 const schema = z.object({
   email: z.string().email(),
@@ -26,14 +25,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Verify the registration code
-    const codeValid = verifyCode(email, code);
-    if (!codeValid) {
+    // Verify code from DB
+    const pending = await prisma.pendingCode.findUnique({ where: { email } });
+    if (!pending) {
       return NextResponse.json(
-        { success: false, error: '验证码无效或已过期，请重新获取' },
+        { success: false, error: '请先获取邮箱验证码' },
         { status: 400 }
       );
     }
+    if (pending.expiresAt < new Date()) {
+      await prisma.pendingCode.delete({ where: { email } });
+      return NextResponse.json(
+        { success: false, error: '验证码已过期，请重新获取' },
+        { status: 400 }
+      );
+    }
+    if (pending.code !== code) {
+      return NextResponse.json(
+        { success: false, error: '验证码错误，请检查后重试' },
+        { status: 400 }
+      );
+    }
+
+    // Consume the code
+    await prisma.pendingCode.delete({ where: { email } });
 
     // Check if already registered
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -44,15 +59,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Hash password
+    // Hash password and create user
     const hashedPassword = await hash(password, 10);
-
-    // Split name
     const parts = name.trim().split(/\s+/);
     const firstName = parts[0];
     const lastName = parts.slice(1).join(' ') || undefined;
 
-    // Create CUSTOMER user
     const user = await prisma.user.create({
       data: {
         email,

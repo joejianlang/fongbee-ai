@@ -145,6 +145,18 @@ enum TokenType {
   LOGIN_CODE
 }
 
+/// Temporary store for pre-registration email verification codes.
+/// Independent of User table — no userId required.
+model PendingCode {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("pending_codes")
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. Service Provider & Reviews
 // ═══════════════════════════════════════════════════════════════════════════
