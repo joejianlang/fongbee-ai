@@ -104,7 +104,7 @@ export default function ProfilePage() {
             className="flex flex-col items-center py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
             <span className="text-xl font-bold text-text-primary dark:text-white">{value}</span>
-            <span className="text-xs text-text-muted mt-0.5">{label}</span>
+            <span className="text-sm text-text-muted mt-0.5">{label}</span>
           </Link>
         ))}
       </div>
@@ -113,7 +113,7 @@ export default function ProfilePage() {
       <div className="mt-3 space-y-2.5 px-3 md:px-0">
         {MENU_ITEMS.map(({ group, items }) => (
           <div key={group} className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
-            <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">{group}</p>
+            <p className="text-sm text-text-muted font-medium px-4 pt-3 pb-1.5">{group}</p>
             {items.map(({ icon: Icon, label, href, badge }) => (
               <Link
                 key={href}

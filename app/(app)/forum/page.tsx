@@ -143,12 +143,12 @@ export default function ForumPage() {
             </div>
 
             {/* 标题 */}
-            <h2 className="text-text-primary dark:text-white text-sm font-semibold mb-1.5 line-clamp-2">
+            <h2 className="text-text-primary dark:text-white text-[15px] font-semibold mb-1.5 line-clamp-2">
               {post.title}
             </h2>
 
             {/* 正文预览 */}
-            <p className="text-text-secondary dark:text-gray-300 text-xs leading-relaxed line-clamp-2 mb-3">
+            <p className="text-text-secondary dark:text-gray-300 text-sm leading-relaxed line-clamp-2 mb-3">
               {post.content}
             </p>
 

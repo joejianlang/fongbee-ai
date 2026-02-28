@@ -54,7 +54,7 @@ export default function SettingsProfilePage() {
             { label: t('cityField'), value: city,  set: setCity,  type: 'text' },
           ].map((field) => (
             <div key={field.label}>
-              <label className="block text-xs font-medium text-text-muted mb-1.5">{field.label}</label>
+              <label className="block text-sm font-medium text-text-muted mb-1.5">{field.label}</label>
               <input
                 type={field.type}
                 value={field.value}

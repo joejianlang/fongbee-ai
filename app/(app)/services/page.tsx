@@ -94,12 +94,12 @@ export default function ServicesPage() {
       {/* Custom service banner */}
       <div className="mx-3 md:mx-0 mt-3 bg-gradient-to-r from-[#0d9488] to-[#0a7c71] rounded-xl px-4 py-3.5 flex items-center justify-between shadow-sm">
         <div>
-          <p className="text-white font-semibold text-sm">{t('customBannerTitle')}</p>
-          <p className="text-white/70 text-xs mt-0.5">{t('customBannerDesc')}</p>
+          <p className="text-white font-semibold text-base">{t('customBannerTitle')}</p>
+          <p className="text-white/70 text-sm mt-0.5">{t('customBannerDesc')}</p>
         </div>
         <Link
           href="/services/custom"
-          className="flex-shrink-0 bg-white text-[#0d9488] text-xs font-bold px-4 py-2 rounded-full hover:bg-white/90 transition-colors"
+          className="flex-shrink-0 bg-white text-[#0d9488] text-sm font-bold px-4 py-2 rounded-full hover:bg-white/90 transition-colors"
         >
           {t('customBannerBtn')}
         </Link>
@@ -134,19 +134,19 @@ export default function ServicesPage() {
               <div className="p-3">
                 {/* 服务商 + 认证 */}
                 <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[#0d9488] text-xs font-semibold">{service.providerName}</span>
+                  <span className="text-[#0d9488] text-sm font-semibold">{service.providerName}</span>
                   {service.isVerified && (
                     <CheckCircle size={12} className="text-[#0d9488]" fill="#0d9488" />
                   )}
                 </div>
 
                 {/* 标题 */}
-                <h2 className="text-text-primary dark:text-white text-sm font-semibold mb-1 line-clamp-1">
+                <h2 className="text-text-primary dark:text-white text-[15px] font-semibold mb-1 line-clamp-1">
                   {service.title}
                 </h2>
 
                 {/* 描述 */}
-                <p className="text-text-muted text-xs line-clamp-2 mb-2.5">
+                <p className="text-text-muted text-sm line-clamp-2 mb-2.5">
                   {service.description}
                 </p>
 
