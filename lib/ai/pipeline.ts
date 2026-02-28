@@ -15,6 +15,7 @@
 
 import { prisma } from '@/lib/db';
 import { withSemanticCache } from '@/lib/cache/redis';
+import { mapTagsToCategory } from '@/lib/ai/categoryMapper';
 import {
   getOpenAIClient,
   getTierModel,
@@ -328,11 +329,30 @@ export async function processEmbedding(
   const vectorJson = JSON.stringify(vector);
   const costUsd = (inputTokens / 1000) * EMBEDDING_COST_PER_1K;
 
+  // Write both vectorJson (fallback) and embedding (pgvector) if supported
   await prisma.articleEmbedding.upsert({
     where: { articleId },
-    create: { articleId, vectorJson, model: EMBEDDING_MODEL },
-    update: { vectorJson, model: EMBEDDING_MODEL },
+    create: {
+      articleId,
+      vectorJson,  // 保留 JSON 兼容字段
+      model: EMBEDDING_MODEL,
+    },
+    update: {
+      vectorJson,
+      model: EMBEDDING_MODEL,
+    },
   });
+
+  // pgvector raw SQL upsert（Prisma 暂不支持 vector 类型的直接赋值）
+  try {
+    await prisma.$executeRaw`
+      UPDATE article_embeddings
+      SET embedding = ${vector}::vector
+      WHERE "articleId" = ${articleId}
+    `;
+  } catch {
+    // 本地开发环境未安装 pgvector 扩展时静默忽略
+  }
 
   return { vectorJson, costUsd };
 }
@@ -357,7 +377,7 @@ export async function processArticle(
 ): Promise<ProcessArticleResult> {
   const article = await prisma.article.findUnique({
     where: { id: articleId },
-    include: { feedSource: { select: { language: true } } },
+    include: { feedSource: { select: { language: true, type: true } } },
   });
 
   if (!article) {
@@ -422,13 +442,28 @@ export async function processArticle(
     errors.push(`embedding: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Update Article with processing metadata
+  // Step 6: Map tags → frontend category
+  let frontendCategory: string | undefined;
+  try {
+    const tagRecords = await prisma.articleTag.findMany({
+      where: { articleId },
+      select: { tag: true },
+    });
+    const tagStrings = tagRecords.map((t) => t.tag);
+    frontendCategory = mapTagsToCategory(tagStrings, article.feedSource?.type);
+    steps.tags = steps.tags; // already set above
+  } catch (err) {
+    errors.push(`categoryMapping: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Update Article with processing metadata + category
   await prisma.article.update({
     where: { id: articleId },
     data: {
       aiProcessedAt: new Date(),
       aiModelUsed: model,
       aiCostUsd: totalCostUsd,
+      ...(frontendCategory ? { frontendCategory } : {}),
     },
   });
 

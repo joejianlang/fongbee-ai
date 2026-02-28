@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { ApiResponse } from '@/lib/types';
+import { ApiResponse, PaginatedResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -45,52 +45,75 @@ export interface ContentArticleDetail {
   createdById?: string;
 }
 
+const getQuerySchema = z.object({
+  type:   z.string().optional(),
+  status: z.string().optional(),
+  page:   z.coerce.number().min(1).default(1),
+  limit:  z.coerce.number().min(1).max(100).default(10),
+});
+
 /**
  * GET /api/admin/articles
- * 获取所有内容文章
+ * 获取内容文章列表（分页）
  */
-export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<ContentArticleDetail[]>>> {
+export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<PaginatedResponse<ContentArticleDetail>>>> {
   try {
-    const searchParams = req.nextUrl.searchParams;
-    const type = searchParams.get('type');
-    const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const sp = req.nextUrl.searchParams;
+    const parsed = getQuerySchema.safeParse({
+      type:   sp.get('type')   || undefined,
+      status: sp.get('status') || undefined,
+      page:   sp.get('page')   || undefined,
+      limit:  sp.get('limit')  || undefined,
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.errors[0].message }, { status: 400 });
+    }
+
+    const { type, status, page, limit } = parsed.data;
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    if (type) where.type = type;
+    if (type)   where.type   = type;
     if (status) where.status = status;
 
-    const articles = await prisma.contentArticle.findMany({
-      where,
-      orderBy: { publishedAt: 'desc' },
-      skip,
-      take: limit,
-    });
+    const [articles, total] = await Promise.all([
+      prisma.contentArticle.findMany({
+        where,
+        orderBy: { publishedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.contentArticle.count({ where }),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: articles.map((a) => ({
-        id: a.id,
-        slug: a.slug,
-        type: a.type,
-        title: a.title,
-        subtitle: a.subtitle ?? undefined,
-        description: a.description ?? undefined,
-        content: a.content,
-        plainText: a.plainText ?? undefined,
-        author: a.author ?? undefined,
-        tags: a.tags ?? undefined,
-        coverImage: a.coverImage ?? undefined,
-        status: a.status,
-        viewCount: a.viewCount,
-        likeCount: a.likeCount,
-        publishedAt: a.publishedAt?.toISOString(),
-        createdAt: a.createdAt.toISOString(),
-        updatedAt: a.updatedAt.toISOString(),
-        createdById: a.createdById ?? undefined,
-      })),
+      data: {
+        items: articles.map((a) => ({
+          id: a.id,
+          slug: a.slug,
+          type: a.type,
+          title: a.title,
+          subtitle: a.subtitle ?? undefined,
+          description: a.description ?? undefined,
+          content: a.content,
+          plainText: a.plainText ?? undefined,
+          author: a.author ?? undefined,
+          tags: a.tags ?? undefined,
+          coverImage: a.coverImage ?? undefined,
+          status: a.status,
+          viewCount: a.viewCount,
+          likeCount: a.likeCount,
+          publishedAt: a.publishedAt?.toISOString(),
+          createdAt: a.createdAt.toISOString(),
+          updatedAt: a.updatedAt.toISOString(),
+          createdById: a.createdById ?? undefined,
+        })),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     return NextResponse.json(

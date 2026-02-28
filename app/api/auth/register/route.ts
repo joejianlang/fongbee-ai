@@ -3,8 +3,9 @@ import { ApiResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
-// Base schema for both registration types
+// Base schema
 const baseRegisterSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
@@ -12,20 +13,21 @@ const baseRegisterSchema = z.object({
   role: z.enum(['SERVICE_PROVIDER', 'SALES_PARTNER']),
 });
 
-// Extended schema for service provider (includes phone)
+// Service provider: phone + optional category + dynamic fields
 const serviceProviderSchema = baseRegisterSchema.extend({
   phone: z.string().min(1),
   role: z.literal('SERVICE_PROVIDER'),
+  categoryId: z.string().min(1).optional(),
+  registrationData: z.record(z.any()).optional(),
 });
 
-// Extended schema for sales partner (includes company name and invitation ID)
+// Sales partner: company name + invitation
 const salesPartnerSchema = baseRegisterSchema.extend({
   companyName: z.string().min(1),
   invitationId: z.string().min(1),
   role: z.literal('SALES_PARTNER'),
 });
 
-// Union schema that handles both types
 const registerSchema = z.union([serviceProviderSchema, salesPartnerSchema]);
 
 export async function POST(
@@ -33,8 +35,6 @@ export async function POST(
 ): Promise<NextResponse<ApiResponse>> {
   try {
     const body = await req.json();
-
-    // Validate input
     const validated = registerSchema.parse(body);
 
     // Check if user already exists
@@ -44,24 +44,16 @@ export async function POST(
 
     if (existingUser) {
       return NextResponse.json(
-        {
-          success: false,
-          message: '该邮箱已被注册',
-        },
+        { success: false, message: '该邮箱已被注册' },
         { status: 400 }
       );
     }
 
     // For sales partner, verify invitation
     if (validated.role === 'SALES_PARTNER') {
-      // TODO: Verify invitation ID from database
-      // For now, just check if invitationId is provided
       if (!validated.invitationId) {
         return NextResponse.json(
-          {
-            success: false,
-            message: '无效的邀请链接',
-          },
+          { success: false, message: '无效的邀请链接' },
           { status: 400 }
         );
       }
@@ -70,61 +62,63 @@ export async function POST(
     // Hash password
     const hashedPassword = await hash(validated.password, 10);
 
-    // Create user with role-specific data
-    const createData: any = {
+    // Split name into firstName / lastName
+    const nameParts = validated.name.trim().split(/\s+/);
+    const firstName = nameParts[0] ?? validated.name;
+    const lastName = nameParts.slice(1).join(' ') || undefined;
+
+    // Build user create data
+    const userCreateData: Record<string, unknown> = {
       email: validated.email,
       password: hashedPassword,
-      name: validated.name,
+      firstName,
+      lastName,
       role: validated.role,
     };
 
-    // Add phone for service provider
     if (validated.role === 'SERVICE_PROVIDER') {
-      createData.phone = validated.phone;
-    }
-
-    // Add company name for sales partner
-    if (validated.role === 'SALES_PARTNER') {
-      createData.companyName = validated.companyName;
-      // TODO: Update invitation status in database
+      userCreateData.phone = validated.phone;
     }
 
     const user = await prisma.user.create({
-      data: createData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-      },
+      data: userCreateData as any,
+      select: { id: true, email: true, firstName: true, lastName: true, role: true },
     });
 
-    // Create email verification token
+    // ── Service Provider: create ServiceProvider + link category ──────────
+    if (validated.role === 'SERVICE_PROVIDER') {
+      const providerData: Record<string, unknown> = {
+        userId: user.id,
+        businessName: validated.name,
+        registrationData: (validated as any).registrationData ?? {},
+      };
+
+      const provider = await prisma.serviceProvider.create({
+        data: providerData as any,
+        select: { id: true },
+      });
+
+      // Link to selected category if provided
+      const categoryId = (validated as any).categoryId;
+      if (categoryId) {
+        await prisma.serviceProviderCategory.create({
+          data: {
+            serviceProviderId: provider.id,
+            categoryId,
+          },
+        });
+      }
+    }
+
+    // Create email verification token (currently skipped)
     const verificationToken = await prisma.authToken.create({
       data: {
         userId: user.id,
         token: Math.random().toString(36).substr(2, 9).toUpperCase(),
         type: 'EMAIL_VERIFICATION',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
-
-    // TODO: Send verification email with token
-    // Email should contain:
-    // - Verification link
-    // - User name and role
-    // - Security notice
-    // Example:
-    // await sendEmail({
-    //   to: user.email,
-    //   subject: '验证您的邮箱地址',
-    //   template: 'email-verification',
-    //   data: {
-    //     name: user.name,
-    //     verificationLink: `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${verificationToken.token}`,
-    //     expiresIn: '24小时'
-    //   }
-    // });
 
     console.log(
       `[DEV] Verification token for ${user.email}: ${verificationToken.token}`
@@ -141,7 +135,7 @@ export async function POST(
           userId: user.id,
           email: user.email,
           role: user.role,
-          verificationRequired: false, // For now, skip email verification
+          verificationRequired: false,
         },
       },
       { status: 201 }
@@ -154,6 +148,19 @@ export async function POST(
           message: '输入验证失败',
           error: error.errors[0].message,
         },
+        { status: 400 }
+      );
+    }
+
+    // Unique constraint violation — return friendly Chinese message
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const field = (error.meta?.target as string[])?.[0] ?? '';
+      const fieldLabel: Record<string, string> = {
+        email: '邮箱',
+        phone: '手机号',
+      };
+      return NextResponse.json(
+        { success: false, message: `该${fieldLabel[field] ?? field}已被注册` },
         { status: 400 }
       );
     }

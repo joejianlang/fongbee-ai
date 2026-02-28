@@ -1,18 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Search, Star, MapPin, CheckCircle, ChevronRight } from 'lucide-react';
 import { MOCK_SERVICES } from '@/lib/mockServices';
 
-const CATEGORIES = ['全部', '家居清洁', '教育辅导', '搬家运输', '园艺', '财税', '房屋维修'];
+interface ServiceCategory {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+}
 
 export default function ServicesPage() {
+  const t = useTranslations('services');
+
   const [search, setSearch]               = useState('');
-  const [activeCategory, setActiveCategory] = useState('全部');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories]         = useState<ServiceCategory[]>([]);
+  const [catsLoading, setCatsLoading]       = useState(true);
+
+  // Load categories from the admin-managed API
+  useEffect(() => {
+    fetch('/api/service-categories')
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setCategories(d.data); })
+      .catch(console.error)
+      .finally(() => setCatsLoading(false));
+  }, []);
 
   const filtered = MOCK_SERVICES.filter((s) => {
-    const matchCat  = activeCategory === '全部' || s.category === activeCategory;
+    const matchCat  = activeCategory === 'all' || s.category === activeCategory;
     const matchText = !search || s.title.includes(search) || s.description.includes(search);
     return matchCat && matchText;
   });
@@ -27,8 +46,8 @@ export default function ServicesPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索服务..."
-            aria-label="搜索服务"
+            placeholder={t('searchPlaceholder')}
+            aria-label={t('searchLabel')}
             className="flex-1 bg-transparent text-sm text-text-primary dark:text-white placeholder-text-muted outline-none"
           />
         </div>
@@ -37,33 +56,52 @@ export default function ServicesPage() {
       {/* 分类 Tab */}
       <div className="bg-white dark:bg-[#2d2d30] border-b border-border-primary">
         <div className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto scrollbar-hide">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                activeCategory === cat
-                  ? 'bg-[#7c3aed] text-white'
-                  : 'text-text-secondary hover:bg-gray-100 dark:hover:bg-white/10'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+          {/* All — always first */}
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              activeCategory === 'all'
+                ? 'bg-[#7c3aed] text-white'
+                : 'text-text-secondary hover:bg-gray-100 dark:hover:bg-white/10'
+            }`}
+          >
+            {t('allCategory')}
+          </button>
+
+          {/* Dynamic categories from admin */}
+          {catsLoading
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-20 h-7 rounded-full bg-gray-100 dark:bg-white/10 animate-pulse" />
+              ))
+            : categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.name)}
+                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    activeCategory === cat.name
+                      ? 'bg-[#7c3aed] text-white'
+                      : 'text-text-secondary hover:bg-gray-100 dark:hover:bg-white/10'
+                  }`}
+                >
+                  {cat.icon && <span className="mr-1">{cat.icon}</span>}
+                  {cat.name}
+                </button>
+              ))
+          }
         </div>
       </div>
 
-      {/* 找不到合适服务横幅 */}
+      {/* Custom service banner */}
       <div className="mx-3 md:mx-0 mt-3 bg-gradient-to-r from-[#0d9488] to-[#0a7c71] rounded-xl px-4 py-3.5 flex items-center justify-between shadow-sm">
         <div>
-          <p className="text-white font-semibold text-sm">找不到合适的服务？</p>
-          <p className="text-white/70 text-xs mt-0.5">发布定制需求，让服务商主动联系您</p>
+          <p className="text-white font-semibold text-sm">{t('customBannerTitle')}</p>
+          <p className="text-white/70 text-xs mt-0.5">{t('customBannerDesc')}</p>
         </div>
         <Link
           href="/services/custom"
           className="flex-shrink-0 bg-white text-[#0d9488] text-xs font-bold px-4 py-2 rounded-full hover:bg-white/90 transition-colors"
         >
-          发布需求
+          {t('customBannerBtn')}
         </Link>
       </div>
 
@@ -71,7 +109,7 @@ export default function ServicesPage() {
       <div className="mt-3 px-3 md:px-0 grid grid-cols-1 md:grid-cols-2 gap-3">
         {filtered.length === 0 ? (
           <div className="col-span-2 text-center py-16 text-text-muted">
-            <p>暂无相关服务</p>
+            <p>{t('noRelated')}</p>
           </div>
         ) : (
           filtered.map((service) => (

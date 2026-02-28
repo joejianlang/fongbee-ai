@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { ApiResponse, FormFieldDef } from '@/lib/types';
+import { ApiResponse, FormFieldDef, PaginatedResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -29,27 +29,51 @@ function serializeField(f: any): FormFieldDef {
   };
 }
 
+const getQuerySchema = z.object({
+  templateType: z.string().default('STANDARD_SERVICE'),
+  page:         z.coerce.number().min(1).default(1),
+  limit:        z.coerce.number().min(1).max(100).default(20),
+});
+
 /**
- * GET /api/admin/service-categories/[id]/fields?templateType=STANDARD_SERVICE
- * 获取该分类指定表单模板类型的所有表单字段
+ * GET /api/admin/service-categories/[id]/fields?templateType=STANDARD_SERVICE&page=1&limit=20
+ * 获取该分类指定表单模板类型的表单字段（分页）
  */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<ApiResponse<FormFieldDef[]>>> {
+): Promise<NextResponse<ApiResponse<PaginatedResponse<FormFieldDef>>>> {
   try {
     const { id } = await params;
-    const templateType = req.nextUrl.searchParams.get('templateType') || 'STANDARD_SERVICE';
-
-    const fields = await prisma.formField.findMany({
-      where: {
-        categoryId: id,
-        templateType: templateType as any,
-      },
-      orderBy: { displayOrder: 'asc' },
+    const sp = req.nextUrl.searchParams;
+    const parsed = getQuerySchema.safeParse({
+      templateType: sp.get('templateType') || undefined,
+      page:         sp.get('page')         || undefined,
+      limit:        sp.get('limit')        || undefined,
     });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.errors[0].message }, { status: 400 });
+    }
 
-    return NextResponse.json({ success: true, data: fields.map(serializeField) });
+    const { templateType, page, limit } = parsed.data;
+    const skip = (page - 1) * limit;
+    const where = { categoryId: id, templateType: templateType as any };
+
+    const [fields, total] = await Promise.all([
+      prisma.formField.findMany({ where, orderBy: { displayOrder: 'asc' }, skip, take: limit }),
+      prisma.formField.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        items: fields.map(serializeField),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '获取字段失败' },

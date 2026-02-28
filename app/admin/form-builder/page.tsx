@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { ServiceCategoryDef, FormFieldDef, FormFieldType, FormTemplateType, FORM_TEMPLATE_LABELS } from '@/lib/types';
+import Pagination from '@/components/Pagination';
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: 'text',        label: '单行文字' },
@@ -28,6 +29,8 @@ const NEEDS_OPTIONS: FormFieldType[] = ['select', 'multiselect', 'chips', 'multi
 const inputCls =
   'w-full px-3 py-2 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40';
 
+const FIELD_LIMIT = 20;
+
 export default function FormBuilderPage() {
   const [categories, setCategories] = useState<ServiceCategoryDef[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -36,6 +39,10 @@ export default function FormBuilderPage() {
   const [loading, setLoading] = useState(false);
   const [showAddField, setShowAddField] = useState(false);
   const [expandedField, setExpandedField] = useState<string | null>(null);
+  // Fields pagination
+  const [fieldPage, setFieldPage] = useState(1);
+  const [fieldTotalPages, setFieldTotalPages] = useState(1);
+  const [fieldTotal, setFieldTotal] = useState(0);
 
   // New field form state
   const [newField, setNewField] = useState({
@@ -50,41 +57,55 @@ export default function FormBuilderPage() {
 
   /* ── Fetch categories ───────────────────────────────────────── */
   useEffect(() => {
-    fetch('/api/admin/service-categories')
+    // Load all categories (small dataset, no pagination needed for sidebar)
+    fetch('/api/admin/service-categories?limit=100')
       .then((r) => r.json())
       .then((res) => {
-        if (res.success) setCategories(res.data);
+        if (res.success) setCategories(res.data.items ?? res.data);
       });
   }, []);
 
-  /* ── Fetch fields when category or template changes ─────────── */
-  const loadFields = useCallback((catId: string, templateType: FormTemplateType) => {
+  /* ── Fetch fields when category, template, or page changes ─────── */
+  const loadFields = useCallback((catId: string, templateType: FormTemplateType, page = 1) => {
     setLoading(true);
-    fetch(`/api/admin/service-categories/${catId}/fields?templateType=${templateType}`)
+    const params = new URLSearchParams({ templateType, page: String(page), limit: String(FIELD_LIMIT) });
+    fetch(`/api/admin/service-categories/${catId}/fields?${params}`)
       .then((r) => r.json())
       .then((res) => {
-        if (res.success) setFields(res.data);
+        if (res.success) {
+          setFields(res.data.items ?? res.data);
+          setFieldTotal(res.data.total ?? 0);
+          setFieldTotalPages(res.data.totalPages ?? 1);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
+  // Re-fetch when fieldPage changes
+  useEffect(() => {
+    if (selectedId) loadFields(selectedId, selectedTemplate, fieldPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldPage]);
+
   const selectCategory = (id: string) => {
     setSelectedId(id);
     setSelectedTemplate('STANDARD_SERVICE');
     setFields([]);
+    setFieldPage(1);
     setShowAddField(false);
     setExpandedField(null);
-    loadFields(id, 'STANDARD_SERVICE');
+    loadFields(id, 'STANDARD_SERVICE', 1);
   };
 
   const switchTemplate = (templateType: FormTemplateType) => {
     if (!selectedId) return;
     setSelectedTemplate(templateType);
     setFields([]);
+    setFieldPage(1);
     setShowAddField(false);
     setExpandedField(null);
-    loadFields(selectedId, templateType);
+    loadFields(selectedId, templateType, 1);
   };
 
   /* ── Add field ──────────────────────────────────────────────── */
@@ -111,9 +132,10 @@ export default function FormBuilderPage() {
     });
     const data = await res.json();
     if (data.success) {
-      setFields((prev) => [...prev, data.data]);
+      // Reload the last page to see the new field
       setNewField({ fieldType: 'text', fieldKey: '', label: '', placeholder: '', required: false, optionsRaw: '', displayOrder: 0 });
       setShowAddField(false);
+      loadFields(selectedId, selectedTemplate, fieldPage);
     } else {
       alert('Error: ' + data.error);
     }
@@ -125,7 +147,14 @@ export default function FormBuilderPage() {
     const res = await fetch(`/api/admin/service-categories/${selectedId}/fields/${fieldId}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.success) {
-      setFields((prev) => prev.filter((f) => f.id !== fieldId));
+      const newFields = fields.filter((f) => f.id !== fieldId);
+      setFields(newFields);
+      // If last item on page, go back a page
+      if (newFields.length === 0 && fieldPage > 1) {
+        setFieldPage((p) => p - 1);
+      } else {
+        loadFields(selectedId, selectedTemplate, fieldPage);
+      }
     }
   };
 
@@ -270,6 +299,15 @@ export default function FormBuilderPage() {
                     该表单类型暂无字段，点击「添加字段」开始配置
                   </p>
                 )}
+
+                {/* Fields pagination */}
+                <Pagination
+                  page={fieldPage}
+                  totalPages={fieldTotalPages}
+                  total={fieldTotal}
+                  limit={FIELD_LIMIT}
+                  onChange={setFieldPage}
+                />
               </div>
             )}
 

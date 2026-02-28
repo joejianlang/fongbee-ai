@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, ThumbsUp, Send, MapPin, MoreHorizontal } from 'lucide-react';
 
 const MOCK_POST = {
@@ -27,8 +28,11 @@ const MOCK_COMMENTS = [
   { id: 'c3', author: '陈晓燕', avatar: '陈', content: '如果不嫌远，Kitchener 那边选择多一些，开车20分钟。', timeAgo: '20分钟前', likes: 3 },
 ];
 
-export default function ForumPostPage({ params }: { params: Promise<{ id: string }> }) {
-  use(params); // consume params
+export default function ForumPostPage({ params }: { params: { id: string } }) {
+  void params; // consumed for potential future use
+  const t = useTranslations('forumDetail');
+  const tCommon = useTranslations('common');
+
   const [liked,   setLiked]   = useState(false);
   const [likes,   setLikes]   = useState(MOCK_POST.likeCount);
   const [comment, setComment] = useState('');
@@ -43,7 +47,7 @@ export default function ForumPostPage({ params }: { params: Promise<{ id: string
     if (!comment.trim()) return;
     setComments((prev) => [
       ...prev,
-      { id: `c${Date.now()}`, author: '我', avatar: '我', content: comment, timeAgo: '刚刚', likes: 0 },
+      { id: `c${Date.now()}`, author: '我', avatar: '我', content: comment, timeAgo: t('justNow'), likes: 0 },
     ]);
     setComment('');
   };
@@ -53,9 +57,9 @@ export default function ForumPostPage({ params }: { params: Promise<{ id: string
       {/* 顶部 */}
       <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center gap-3">
         <Link href="/forum" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm transition-colors">
-          <ArrowLeft size={18} />返回
+          <ArrowLeft size={18} />{tCommon('back')}
         </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm">帖子详情</span>
+        <span className="font-semibold text-text-primary dark:text-white text-sm">{t('title')}</span>
         <button className="ml-auto text-text-muted hover:text-text-primary transition-colors">
           <MoreHorizontal size={20} />
         </button>
@@ -99,7 +103,7 @@ export default function ForumPostPage({ params }: { params: Promise<{ id: string
         {/* 评论列表 */}
         <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
           <p className="text-sm font-semibold text-text-primary dark:text-white px-4 py-3 border-b border-border-primary">
-            评论 ({comments.length})
+            {t('comments')} ({comments.length})
           </p>
           {comments.map((c) => (
             <div key={c.id} className="flex gap-3 px-4 py-3.5 border-b border-border-primary last:border-0">
@@ -128,7 +132,7 @@ export default function ForumPostPage({ params }: { params: Promise<{ id: string
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleComment()}
-          placeholder="写下你的评论..."
+          placeholder={t('commentPlaceholder')}
           className="flex-1 px-4 py-2.5 text-sm border border-border-primary rounded-full bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40"
         />
         <button

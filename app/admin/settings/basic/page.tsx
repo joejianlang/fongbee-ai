@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, AlertCircle } from 'lucide-react';
 
 export default function BasicSettingsPage() {
@@ -8,10 +8,22 @@ export default function BasicSettingsPage() {
   const [platformName, setPlatformName] = useState('优服佳');
   const [platformSlogan, setPlatformSlogan] = useState('您身边的服务专家');
   const [defaultCity, setDefaultCity] = useState('多伦多');
+  // SSR-safe: default true (matches server render), then sync with cookie after hydration
+  const [enableEnglish, setEnableEnglish] = useState(true);
+  useEffect(() => {
+    const match = document.cookie.match(/enableEnglish=([^;]+)/);
+    if (match) setEnableEnglish(match[1] !== 'false');
+  }, []);
   const [platformFee, setPlatformFee] = useState('10');
   const [maxBookDays, setMaxBookDays] = useState('90');
   const [supportEmail, setSupportEmail] = useState('support@youfujia.ca');
   const [supportPhone, setSupportPhone] = useState('+1-416-555-0000');
+
+  const handleEnglishToggle = () => {
+    const next = !enableEnglish;
+    setEnableEnglish(next);
+    document.cookie = `enableEnglish=${next};path=/;max-age=31536000`;
+  };
 
   const handleSave = () => {
     setSaved(true);
@@ -68,11 +80,35 @@ export default function BasicSettingsPage() {
             </div>
             <div>
               <label className={labelClass}>支持语言</label>
-              <select className={inputClass}>
-                <option>中文 (简体)</option>
-                <option>中文 (繁體)</option>
-                <option>English</option>
-              </select>
+              <div className="border border-card-border rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">启用英文版本</p>
+                    <p className="text-xs text-text-muted mt-0.5">开启后，用户可在中文/英文之间切换</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEnglishToggle}
+                    role="switch"
+                    aria-checked={enableEnglish}
+                    className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40 ${
+                      enableEnglish ? 'bg-[#0d9488]' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                        enableEnglish ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+                {!enableEnglish && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    禁用后所有用户将只看到中文，已选英文的用户将自动回退到中文
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

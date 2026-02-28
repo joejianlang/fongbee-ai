@@ -3,15 +3,22 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { ServiceCategoryDef } from '@/lib/types';
+import Pagination from '@/components/Pagination';
 
 const inputBase =
   'w-full px-3 py-2 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40';
+
+const LIMIT = 10;
 
 export default function ServiceCategoriesPage() {
   const [categories, setCategories] = useState<ServiceCategoryDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -27,11 +34,15 @@ export default function ServiceCategoriesPage() {
   /* ── Fetch categories ────────────────────────────────── */
   useEffect(() => {
     const fetchCategories = async () => {
+      setLoading(true);
       try {
-        const res = await fetch('/api/admin/service-categories');
+        const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+        const res = await fetch(`/api/admin/service-categories?${params}`);
         const data = await res.json();
         if (data.success) {
-          setCategories(data.data);
+          setCategories(data.data.items);
+          setTotal(data.data.total);
+          setTotalPages(data.data.totalPages);
         }
       } catch (err) {
         console.error('Failed to fetch categories:', err);
@@ -40,7 +51,7 @@ export default function ServiceCategoriesPage() {
       }
     };
     fetchCategories();
-  }, []);
+  }, [page]);
 
   /* ── Reset form ──────────────────────────────────────── */
   const resetForm = () => {
@@ -72,7 +83,8 @@ export default function ServiceCategoriesPage() {
 
       const data = await res.json();
       if (data.success) {
-        setCategories((prev) => [...prev, data.data]);
+        // Go to last page to see newly created item, or reload current page
+        setPage(1);
         resetForm();
         alert('分类创建成功！');
       } else {
@@ -119,6 +131,9 @@ export default function ServiceCategoriesPage() {
 
       const data = await res.json();
       if (data.success) {
+        // If last item on page, go back a page
+        if (categories.length === 1 && page > 1) setPage((p) => p - 1);
+        else setPage((p) => p); // trigger reload via dependency
         setCategories((prev) => prev.filter((c) => c.id !== id));
         alert('分类已删除');
       } else {
@@ -131,14 +146,6 @@ export default function ServiceCategoriesPage() {
       setDeleting(null);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 size={28} className="animate-spin text-[#0d9488]" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -239,7 +246,11 @@ export default function ServiceCategoriesPage() {
 
       {/* Categories List */}
       <div className="space-y-2">
-        {categories.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 size={28} className="animate-spin text-[#0d9488]" />
+          </div>
+        ) : categories.length === 0 ? (
           <div className="text-center py-12 bg-white dark:bg-[#2d2d30] rounded-xl border border-border-primary">
             <p className="text-text-muted text-sm">暂无服务分类</p>
           </div>
@@ -288,6 +299,15 @@ export default function ServiceCategoriesPage() {
             </div>
           ))
         )}
+
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={LIMIT}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

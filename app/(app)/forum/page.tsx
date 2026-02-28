@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { MapPin, ThumbsUp, MessageCircle, Plus, ChevronDown } from 'lucide-react';
 
 interface ForumPost {
@@ -84,6 +85,7 @@ const MOCK_POSTS: ForumPost[] = [
 const CATEGORIES = ['全部', '美食', '家政', '生活', '财税', '活动', '求助', '二手'];
 
 export default function ForumPage() {
+  const t = useTranslations('forum');
   const [activeCategory, setActiveCategory] = useState('全部');
 
   const filtered = activeCategory === '全部'
@@ -158,10 +160,10 @@ export default function ForumPage() {
               </button>
               <button className="flex items-center gap-1.5 hover:text-[#0d9488] transition-colors">
                 <MessageCircle size={14} />
-                <span>{post.commentCount} 条评论</span>
+                <span>{post.commentCount} {t('comments')}</span>
               </button>
               <button className="flex items-center gap-1 ml-auto hover:text-[#0d9488] transition-colors">
-                <span>详情</span>
+                <span>{t('details')}</span>
                 <ChevronDown size={13} />
               </button>
             </div>
@@ -173,7 +175,7 @@ export default function ForumPage() {
       <Link
         href="/forum/new"
         className="fixed bottom-24 md:bottom-8 right-5 w-14 h-14 bg-[#0d9488] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#0a7c71] transition-colors z-30"
-        aria-label="发布帖子"
+        aria-label={t('newPost')}
       >
         <Plus size={24} />
       </Link>

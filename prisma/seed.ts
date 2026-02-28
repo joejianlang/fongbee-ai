@@ -211,6 +211,40 @@ async function main() {
 
   console.log(`✅ Created admin user: ${adminUser.email}`);
 
+  // 2.5. Create news categories
+  const newsCategoryDefs = [
+    { name: '全部', displayOrder: 0 },
+    { name: '关注', displayOrder: 1 },
+    { name: '传统新闻媒体', displayOrder: 2 },
+    { name: 'YouTube网红', displayOrder: 3 },
+    { name: '网络专业媒体', displayOrder: 4 },
+    { name: '本地', displayOrder: 5 },
+    { name: '热点', displayOrder: 6 },
+    { name: '政治', displayOrder: 7 },
+    { name: '科技', displayOrder: 8 },
+    { name: '财经', displayOrder: 9 },
+    { name: '文化娱乐', displayOrder: 10 },
+    { name: '体育', displayOrder: 11 },
+  ];
+
+  const newsCategories = await Promise.all(
+    newsCategoryDefs.map(async (def) => {
+      const existing = await prisma.newsCategory.findUnique({
+        where: { name: def.name },
+      });
+      if (existing) return existing;
+      return prisma.newsCategory.create({
+        data: {
+          name: def.name,
+          displayOrder: def.displayOrder,
+          isActive: true,
+        },
+      });
+    })
+  );
+
+  console.log(`✅ Created ${newsCategories.length} news categories`);
+
   // 3. Create payment policies
   const policyDefs = [
     { serviceType: 'standard',       autoCaptureHoursBefore: 48, isAutoCaptureEnabled: true,  cancellationCutoffHours: 48, forfeiturePercentage: 20, depositPercentage: 30, refundDays: 7  },

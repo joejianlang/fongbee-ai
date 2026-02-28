@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Send, TrendingUp, Users, Building, Copy, Check } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 
 interface SalesPartner {
   id: string;
@@ -46,10 +47,16 @@ const statusLabels: Record<string, string> = {
 const inputCls =
   'w-full px-3 py-2 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40';
 
+const LIMIT = 10;
+
 export default function SalesPartnersPage() {
   const [partners, setPartners] = useState<SalesPartner[]>([]);
   const [loading, setLoading] = useState(true);
   const [tierFilter, setTierFilter] = useState('');
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [inviteForm, setInviteForm] = useState<{
     partnerId: string;
     email: string;
@@ -62,19 +69,28 @@ export default function SalesPartnersPage() {
 
   useEffect(() => {
     loadPartners();
-  }, [tierFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, tierFilter]);
 
   const loadPartners = async () => {
+    setLoading(true);
     try {
-      let url = '/api/admin/sales-partners';
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (tierFilter) params.append('tier', tierFilter);
-      if (params.toString()) url += '?' + params.toString();
 
-      const res = await fetch(url);
+      const res = await fetch(`/api/admin/sales-partners?${params}`);
       const data = await res.json();
       if (data.success) {
-        setPartners(data.data);
+        // API returns PaginatedResponse or plain array — handle both
+        if (Array.isArray(data.data)) {
+          setPartners(data.data);
+          setTotal(data.data.length);
+          setTotalPages(1);
+        } else {
+          setPartners(data.data.items ?? data.data);
+          setTotal(data.data.total ?? data.data.length);
+          setTotalPages(data.data.totalPages ?? 1);
+        }
       }
     } catch (error) {
       console.error('Failed to load partners:', error);
@@ -82,6 +98,8 @@ export default function SalesPartnersPage() {
       setLoading(false);
     }
   };
+
+  const handleTierFilter = (val: string) => { setTierFilter(val); setPage(1); };
 
 
   const openInviteForm = (partnerId: string) => {
@@ -129,10 +147,6 @@ export default function SalesPartnersPage() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12 text-text-muted">加载中...</div>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -150,7 +164,7 @@ export default function SalesPartnersPage() {
       <div className="flex gap-4 bg-card border border-card-border rounded-lg p-4">
         <select
           value={tierFilter}
-          onChange={(e) => setTierFilter(e.target.value)}
+          onChange={(e) => handleTierFilter(e.target.value)}
           className={inputCls + ' flex-1'}
         >
           <option value="">全部等级</option>
@@ -162,7 +176,9 @@ export default function SalesPartnersPage() {
 
       {/* Partners List */}
       <div className="grid grid-cols-1 gap-4">
-        {partners.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12 text-text-muted">加载中...</div>
+        ) : partners.length === 0 ? (
           <div className="text-center py-12 text-text-muted">暂无销售合伙人</div>
         ) : (
           partners.map((partner) => (
@@ -336,6 +352,15 @@ export default function SalesPartnersPage() {
             </div>
           ))
         )}
+
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={LIMIT}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

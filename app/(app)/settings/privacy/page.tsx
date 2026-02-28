@@ -2,9 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Shield, Eye, Trash2, Download, Lock } from 'lucide-react';
 
 export default function PrivacyPage() {
+  const t = useTranslations('privacy');
+  const tSettings = useTranslations('settings');
+  const tCommon = useTranslations('common');
+
   const [showHistory, setShowHistory] = useState(true);
   const [shareLocation, setShareLocation] = useState(true);
   const [personalized, setPersonalized] = useState(true);
@@ -13,19 +18,19 @@ export default function PrivacyPage() {
     <div className="pb-6">
       <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center gap-3">
         <Link href="/profile" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm transition-colors">
-          <ArrowLeft size={18} />返回
+          <ArrowLeft size={18} />{tCommon('back')}
         </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm">隐私与安全</span>
+        <span className="font-semibold text-text-primary dark:text-white text-sm">{tSettings('privacyTitle')}</span>
       </div>
 
       <div className="mt-3 px-4 md:px-0 space-y-3">
         {/* 隐私设置 */}
         <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
-          <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">隐私设置</p>
+          <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">{t('privacySettings')}</p>
           {[
-            { label: '保存浏览历史', desc: '记录您的浏览和搜索记录', value: showHistory, set: setShowHistory },
-            { label: '位置信息授权', desc: '允许平台获取您的大概位置以推荐附近服务', value: shareLocation, set: setShareLocation },
-            { label: '个性化推荐', desc: '根据您的使用行为推荐相关服务', value: personalized, set: setPersonalized },
+            { label: t('showHistory'),   desc: t('showHistoryDesc'),   value: showHistory,   set: setShowHistory },
+            { label: t('shareLocation'), desc: t('shareLocationDesc'), value: shareLocation, set: setShareLocation },
+            { label: t('personalized'),  desc: t('personalizedDesc'),  value: personalized,  set: setPersonalized },
           ].map(({ label, desc, value, set }) => (
             <div key={label} className="flex items-center justify-between px-4 py-3.5 border-t border-border-primary">
               <div>
@@ -44,11 +49,11 @@ export default function PrivacyPage() {
 
         {/* 账户安全 */}
         <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
-          <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">账户安全</p>
+          <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">{t('accountSecurity')}</p>
           {[
-            { icon: Lock,     label: '修改密码',   desc: '定期更换密码保障安全' },
-            { icon: Shield,   label: '两步验证',   desc: '未启用',               badge: '推荐' },
-            { icon: Eye,      label: '登录设备',   desc: '查看已登录设备列表' },
+            { icon: Lock,   label: t('changePassword'), desc: t('changePasswordDesc'), badge: ''                 },
+            { icon: Shield, label: t('twoFactor'),      desc: t('twoFactorDesc'),      badge: t('recommended')   },
+            { icon: Eye,    label: t('loginDevices'),   desc: t('loginDevicesDesc'),   badge: ''                 },
           ].map(({ icon: Icon, label, desc, badge }) => (
             <button key={label} className="w-full flex items-center gap-3 px-4 py-3.5 border-t border-border-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-left">
               <Icon size={18} className="text-text-secondary flex-shrink-0" />
@@ -64,10 +69,10 @@ export default function PrivacyPage() {
 
         {/* 数据与隐私 */}
         <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
-          <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">数据管理（CPPA 权利）</p>
+          <p className="text-xs text-text-muted font-medium px-4 pt-3 pb-1.5">{t('dataManagement')}</p>
           {[
-            { icon: Download, label: '导出我的数据', desc: '获取您在平台上的所有数据副本', color: 'text-blue-500' },
-            { icon: Trash2,   label: '删除账户',     desc: '永久删除账户及所有数据',         color: 'text-red-500' },
+            { icon: Download, label: t('exportData'),    desc: t('exportDataDesc'),    color: 'text-blue-500' },
+            { icon: Trash2,   label: t('deleteAccount'), desc: t('deleteAccountDesc'), color: 'text-red-500'  },
           ].map(({ icon: Icon, label, desc, color }) => (
             <button key={label} className="w-full flex items-center gap-3 px-4 py-3.5 border-t border-border-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-left">
               <Icon size={18} className={`${color} flex-shrink-0`} />

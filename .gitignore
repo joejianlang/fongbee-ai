@@ -60,3 +60,6 @@ Thumbs.db
 # Temp
 tmp
 temp
+
+# Claude Code session data
+.claude/

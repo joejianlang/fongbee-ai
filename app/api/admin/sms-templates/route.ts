@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { ApiResponse } from '@/lib/types';
+import { ApiResponse, PaginatedResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -24,31 +24,55 @@ export interface SMSTemplateDetail {
   updatedAt: string;
 }
 
+const getQuerySchema = z.object({
+  page:  z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
+});
+
 /**
  * GET /api/admin/sms-templates
- * 获取所有短信模板
+ * 获取短信模板列表（分页）
  */
 export async function GET(
-  _req: NextRequest
-): Promise<NextResponse<ApiResponse<SMSTemplateDetail[]>>> {
+  req: NextRequest
+): Promise<NextResponse<ApiResponse<PaginatedResponse<SMSTemplateDetail>>>> {
   try {
-    const templates = await prisma.sMSTemplate.findMany({
-      orderBy: { createdAt: 'asc' },
+    const sp = req.nextUrl.searchParams;
+    const parsed = getQuerySchema.safeParse({
+      page:  sp.get('page')  || undefined,
+      limit: sp.get('limit') || undefined,
     });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.errors[0].message }, { status: 400 });
+    }
+
+    const { page, limit } = parsed.data;
+    const skip = (page - 1) * limit;
+
+    const [templates, total] = await Promise.all([
+      prisma.sMSTemplate.findMany({ orderBy: { createdAt: 'asc' }, skip, take: limit }),
+      prisma.sMSTemplate.count(),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: templates.map((t) => ({
-        id: t.id,
-        type: t.type,
-        name: t.name,
-        content: t.content,
-        description: t.description ?? undefined,
-        variables: t.variables ?? undefined,
-        isActive: t.isActive,
-        createdAt: t.createdAt.toISOString(),
-        updatedAt: t.updatedAt.toISOString(),
-      })),
+      data: {
+        items: templates.map((t) => ({
+          id: t.id,
+          type: t.type,
+          name: t.name,
+          content: t.content,
+          description: t.description ?? undefined,
+          variables: t.variables ?? undefined,
+          isActive: t.isActive,
+          createdAt: t.createdAt.toISOString(),
+          updatedAt: t.updatedAt.toISOString(),
+        })),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     return NextResponse.json(

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   LucideIcon,
   Brain,
+  Rss,
 } from 'lucide-react';
 
 interface SettingModule {
@@ -33,6 +34,22 @@ interface SettingModule {
 }
 
 const SETTING_MODULES: SettingModule[] = [
+  {
+    id: 'feed-sources',
+    label: '订阅源管理',
+    description: '管理 RSS 和 YouTube 新闻抓取来源，配置抓取频率',
+    icon: Rss,
+    href: '/admin/settings/feed-sources',
+    status: 'active',
+  },
+  {
+    id: 'ai-pipeline',
+    label: 'AI 流水线监控',
+    description: '查看 AI 处理进度、成本统计、分类分布和错误日志',
+    icon: Zap,
+    href: '/admin/settings/ai-pipeline',
+    status: 'active',
+  },
   {
     id: 'ai-config',
     label: 'AI 配置',

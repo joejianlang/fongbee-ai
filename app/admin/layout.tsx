@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import {
   LayoutDashboard,
   Package,
@@ -13,6 +14,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  LogOut,
   LucideIcon,
 } from 'lucide-react';
 
@@ -84,7 +86,21 @@ export default function AdminLayout({
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleMenu = (label: string) => {
     setExpandedMenu(expandedMenu === label ? null : label);
@@ -212,9 +228,46 @@ export default function AdminLayout({
             <p className="text-sm text-text-muted">欢迎回来，管理员</p>
           </div>
           <div className="flex items-center gap-4">
-            {/* User Menu */}
-            <div className="w-10 h-10 rounded-full bg-text-accent flex items-center justify-center text-white font-bold">
-              A
+            {/* User Menu Dropdown */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#0d9488] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {(session?.user?.name ?? session?.user?.email ?? 'A')[0].toUpperCase()}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-xs font-medium text-text-primary leading-tight max-w-[120px] truncate">
+                    {session?.user?.name || session?.user?.email || '管理员'}
+                  </p>
+                  <p className="text-[10px] text-text-muted leading-tight">管理员</p>
+                </div>
+                <ChevronDown size={14} className={`text-text-muted transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown */}
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-card-border rounded-xl shadow-lg z-50 overflow-hidden">
+                  {/* User Info */}
+                  <div className="px-4 py-3 border-b border-card-border">
+                    <p className="text-xs font-semibold text-text-primary truncate">
+                      {session?.user?.name || '管理员'}
+                    </p>
+                    <p className="text-xs text-text-muted truncate mt-0.5">
+                      {session?.user?.email || ''}
+                    </p>
+                  </div>
+                  {/* Logout */}
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                  >
+                    <LogOut size={16} />
+                    退出登录
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

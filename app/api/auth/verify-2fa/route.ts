@@ -20,7 +20,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const session = await prisma.authToken.findFirst({
       where: {
         token: sessionId,
-        type: '2FA_SESSION',
+        type: 'TWO_FA_SESSION',
         expiresAt: {
           gt: new Date(),
         },
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       where: {
         userId: session.userId,
         token: code,
-        type: '2FA_CODE',
+        type: 'TWO_FA_CODE',
         expiresAt: {
           gt: new Date(),
         },
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       where: {
         userId: session.userId,
         type: {
-          in: ['2FA_SESSION', '2FA_CODE'],
+          in: ['TWO_FA_SESSION', 'TWO_FA_CODE'],
         },
       },
     });
@@ -79,7 +79,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         id: true,
         email: true,
         phone: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         role: true,
       },
     });
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           id: user.id,
           email: user.email,
           phone: user.phone,
-          name: user.name,
+          name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
           role: user.role,
         },
         token,

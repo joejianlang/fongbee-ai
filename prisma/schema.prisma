@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
   // ⚠️  生产环境：Supabase Canada Region (ca-central-1)，数据主权要求
-  url      = env("DATABASE_URL")
+  url        = env("DATABASE_URL")
+  extensions = [vector]  // pgvector — Supabase 内置，本地需 CREATE EXTENSION vector;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -138,6 +140,9 @@ enum TokenType {
   PASSWORD_RESET
   OAUTH
   REFRESH
+  TWO_FA_SESSION
+  TWO_FA_CODE
+  LOGIN_CODE
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -187,6 +192,9 @@ model ServiceProvider {
   // 被销售合伙人邀请
   invitedBySalesPartnerId String?
   invitedBySalesPartner   SalesPartner?  @relation("SalesPartnerInvitedProviders", fields: [invitedBySalesPartnerId], references: [id], onDelete: SetNull)
+
+  // 注册时填写的分类动态表单数据
+  registrationData   Json?
 
   @@index([userId])
   @@index([isVerified])
@@ -983,6 +991,9 @@ model Article {
   aiProcessedAt    DateTime?
   aiModelUsed      String?
   aiCostUsd        Decimal?  @db.Decimal(8, 6) // 成本追踪
+  newsCategoryId   String? @map("news_category_id")
+  newsCategory     NewsCategory? @relation(fields: [newsCategoryId], references: [id], onDelete: SetNull)
+  frontendCategory String?   // 向后兼容字段（已弃用，优先使用 newsCategoryId）
   likeCount        Int       @default(0)
   shareCount       Int       @default(0)
   viewCount        Int       @default(0)
@@ -996,6 +1007,7 @@ model Article {
   embedding        ArticleEmbedding?
 
   @@index([feedSourceId])
+  @@index([newsCategoryId])
   @@index([publishedAt])
   @@index([isActive])
   @@index([sentiment])
@@ -1015,14 +1027,43 @@ model ArticleTag {
   @@map("article_tags")
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// News Categories (管理员后台可配置)
+// ═══════════════════════════════════════════════════════════════════════════
+
+model NewsCategory {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  slug         String   @unique @default(cuid())
+  icon         String?
+  color        String?
+  description  String?  // 分类用途说明，如"科技领域相关内容，包括AI、芯片等"
+  keywords     String?  // JSON 关键词数组，如 ["AI","芯片","科技"]，供 AI 打标 + Feed 过滤
+  // 过滤策略: "ALL"=全部 | "USER_INTERESTS"=关注 | "RSS_SOURCE"=RSS媒体 |
+  //           "YOUTUBE_SOURCE"=YouTube | "KEYWORDS"=关键词匹配（默认）
+  filterType   String   @default("KEYWORDS") @map("filter_type")
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  articles     Article[]
+
+  @@index([isActive])
+  @@index([slug])
+  @@map("news_categories")
+}
+
 // 文章向量嵌入（相似推荐）
+// ⚠️  需要先执行：CREATE EXTENSION IF NOT EXISTS vector;
 model ArticleEmbedding {
-  id        String   @id @default(cuid())
-  articleId String   @unique
-  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  vectorJson String  // JSON 序列化 Float[]（余弦相似度）
-  model     String   @default("text-embedding-3-small")
-  createdAt DateTime @default(now())
+  id        String                       @id @default(cuid())
+  articleId String                       @unique
+  article   Article                      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  vectorJson String?                     // 保留兼容字段（迁移期过渡）
+  embedding  Unsupported("vector(1536)")?  // pgvector 真实向量列（text-embedding-3-small = 1536 dims）
+  model     String                       @default("text-embedding-3-small")
+  createdAt DateTime                     @default(now())
 
   @@map("article_embeddings")
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Search, UserCheck, UserX, ShieldCheck } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 
 type Role = '全部' | 'customer' | 'service_provider' | 'admin';
 type UserStatus = 'active' | 'suspended';
@@ -39,8 +40,11 @@ const ROLE_STYLES: Record<AppUser['role'], string> = {
   admin: 'bg-purple-100 text-purple-700',
 };
 
+const PAGE_SIZE = 5;
+
 export default function UsersPage() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   // Only show customer users
   const filtered = MOCK_USERS.filter((u) => {
@@ -51,6 +55,11 @@ export default function UsersPage() {
       u.id.toLowerCase().includes(search.toLowerCase());
     return matchRole && matchSearch;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const handleSearch = (val: string) => { setSearch(val); setPage(1); };
 
   const counts = {
     total:    MOCK_USERS.length,
@@ -89,7 +98,7 @@ export default function UsersPage() {
           <input
             type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             placeholder="搜索用户名 / 邮箱 / ID..."
             className="w-full pl-9 pr-4 py-2 text-sm border border-card-border rounded-lg bg-card text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40"
           />
@@ -108,10 +117,10 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paged.length === 0 ? (
                 <tr><td colSpan={8} className="px-5 py-12 text-center text-text-muted">暂无用户</td></tr>
               ) : (
-                filtered.map((u) => (
+                paged.map((u) => (
                   <tr key={u.id} className="border-b border-card-border last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                     <td className="px-5 py-3.5 text-xs text-text-muted">{u.id}</td>
                     <td className="px-5 py-3.5 font-medium text-text-primary flex items-center gap-2">
@@ -156,14 +165,13 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-5 py-3 border-t border-card-border text-xs text-text-muted">
-          <span>共 {filtered.length} 位用户</span>
-          <div className="flex gap-1">
-            {[1, 2, 3].map((p) => (
-              <button key={p} className={`w-7 h-7 rounded text-xs font-medium ${p === 1 ? 'bg-[#0d9488] text-white' : 'hover:bg-gray-100 text-text-secondary'}`}>{p}</button>
-            ))}
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={filtered.length}
+          limit={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Edit2, Eye, Plus, Save, X, Trash2, Clock } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 
 interface ContentArticle {
   id: string;
@@ -41,6 +42,8 @@ const statusLabels: Record<string, string> = {
 const inputCls =
   'w-full px-3 py-2 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40';
 
+const LIMIT = 10;
+
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<ContentArticle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,23 +55,29 @@ export default function ArticlesPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     loadArticles();
-  }, [typeFilter, statusFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, typeFilter, statusFilter]);
 
   const loadArticles = async () => {
+    setLoading(true);
     try {
-      let url = '/api/admin/articles';
-      const params = new URLSearchParams();
-      if (typeFilter) params.append('type', typeFilter);
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      if (typeFilter)  params.append('type',   typeFilter);
       if (statusFilter) params.append('status', statusFilter);
-      if (params.toString()) url += '?' + params.toString();
 
-      const res = await fetch(url);
+      const res = await fetch(`/api/admin/articles?${params}`);
       const data = await res.json();
       if (data.success) {
-        setArticles(data.data);
+        setArticles(data.data.items);
+        setTotal(data.data.total);
+        setTotalPages(data.data.totalPages);
       }
     } catch (error) {
       console.error('Failed to load articles:', error);
@@ -76,6 +85,9 @@ export default function ArticlesPage() {
       setLoading(false);
     }
   };
+
+  const handleTypeFilter = (val: string) => { setTypeFilter(val); setPage(1); };
+  const handleStatusFilter = (val: string) => { setStatusFilter(val); setPage(1); };
 
   const startEdit = async (article: ContentArticle) => {
     setEditingId(article.id);
@@ -155,10 +167,6 @@ export default function ArticlesPage() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12 text-text-muted">加载中...</div>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -179,7 +187,7 @@ export default function ArticlesPage() {
       <div className="flex gap-4 bg-card border border-card-border rounded-lg p-4">
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
+          onChange={(e) => handleTypeFilter(e.target.value)}
           className={inputCls + ' flex-1'}
         >
           <option value="">全部文章类型</option>
@@ -191,7 +199,7 @@ export default function ArticlesPage() {
         </select>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => handleStatusFilter(e.target.value)}
           className={inputCls + ' flex-1'}
         >
           <option value="">全部状态</option>
@@ -203,7 +211,9 @@ export default function ArticlesPage() {
 
       {/* Articles List */}
       <div className="space-y-4">
-        {articles.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12 text-text-muted">加载中...</div>
+        ) : articles.length === 0 ? (
           <div className="text-center py-12 text-text-muted">没有找到文章</div>
         ) : (
           articles.map((article) => (
@@ -406,6 +416,15 @@ export default function ArticlesPage() {
             </div>
           ))
         )}
+
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={LIMIT}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

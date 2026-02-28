@@ -1,31 +1,106 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Phone, Lock, AlertCircle } from 'lucide-react';
+import { signIn } from 'next-auth/react';
 
-type LoginMethod = 'password' | 'code' | '2fa';
+type LoginMethod = 'password' | 'code';
+type Step = 'input' | '2fa';
 
 export default function SignInPage() {
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
-  const [identifier, setIdentifier] = useState(''); // email or phone
+  const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] = useState<'email' | 'phone'>('email');
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'input' | 'verify' | '2fa'>('input');
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('input');
   const [sessionId, setSessionId] = useState('');
+  const [twoFACode, setTwoFACode] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const inputClass =
     'w-full px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#0d9488]/40 focus:border-[#0d9488] transition-all';
 
-  // 第一步：输入邮箱/手机号和密码
+  // Auto-detect identifier type based on input
+  const handleIdentifierChange = useCallback((value: string) => {
+    setIdentifier(value);
+    setError('');
+    // If contains @, treat as email; if starts with + or is all digits, treat as phone
+    if (value.includes('@')) {
+      setIdentifierType('email');
+    } else if (/^[\d\s\-\+\(\)]+$/.test(value) && value.length > 0) {
+      setIdentifierType('phone');
+    }
+  }, []);
+
+  // Start countdown timer
+  const startCountdown = useCallback(() => {
+    setCountdown(60);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  // Send verification code
+  const handleSendCode = async () => {
+    if (!identifier) {
+      setError('请输入邮箱或手机号');
+      return;
+    }
+
+    setSendingCode(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier,
+          identifierType,
+          codeType: 'LOGIN',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error || '发送验证码失败');
+        return;
+      }
+
+      setCodeSent(true);
+      startCountdown();
+    } catch {
+      setError('发送验证码失败，请重试');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  // Handle login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!agreedToTerms) {
+      setError('请先同意服务条款和隐私政策');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -35,7 +110,6 @@ export default function SignInPage() {
           return;
         }
 
-        // 调用登录 API
         const res = await fetch('/api/auth/signin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -53,104 +127,64 @@ export default function SignInPage() {
           return;
         }
 
-        // 检查是否需要二次认证（管理员）
         if (data.requiresTwoFA) {
           setSessionId(data.sessionId);
-          setUserRole(data.role);
           setStep('2fa');
         } else {
-          // 保存 token 并重定向
+          // Bridge custom JWT → NextAuth session cookie so getServerSession() works
           localStorage.setItem('auth_token', data.token);
-          const redirectUrl = data.redirectUrl || '/dashboard';
-          window.location.href = redirectUrl;
+          await signIn('token', { token: data.token, redirect: false });
+          window.location.href = data.redirectUrl || '/dashboard';
         }
-      } else if (loginMethod === 'code') {
-        // 验证码登录
-        if (!identifier) {
-          setError('请输入邮箱或手机号');
+      } else {
+        // Verification code login
+        if (!identifier || !verificationCode) {
+          setError('请输入邮箱/手机号和验证码');
           return;
         }
 
-        // 发送验证码
-        const res = await fetch('/api/auth/send-code', {
+        const res = await fetch('/api/auth/verify-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             identifier,
             identifierType,
-            codeType: 'LOGIN',
+            code: verificationCode,
           }),
         });
 
         const data = await res.json();
 
         if (!data.success) {
-          setError(data.error || '发送验证码失败');
+          setError(data.error || '验证失败');
           return;
         }
 
-        setStep('verify');
+        if (data.requiresTwoFA) {
+          setSessionId(data.sessionId);
+          setStep('2fa');
+        } else {
+          // Bridge custom JWT → NextAuth session cookie
+          localStorage.setItem('auth_token', data.token);
+          await signIn('token', { token: data.token, redirect: false });
+          window.location.href = data.redirectUrl || '/dashboard';
+        }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败，请重试');
+    } catch {
+      setError('操作失败，请重试');
     } finally {
       setLoading(false);
     }
   };
 
-  // 第二步：验证验证码（验证码登录）
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      if (!verificationCode) {
-        setError('请输入验证码');
-        return;
-      }
-
-      const res = await fetch('/api/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier,
-          identifierType,
-          code: verificationCode,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        setError(data.error || '验证失败');
-        return;
-      }
-
-      // 检查是否需要二次认证
-      if (data.requiresTwoFA) {
-        setUserRole(data.role);
-        setStep('2fa');
-      } else {
-        localStorage.setItem('auth_token', data.token);
-        const redirectUrl = data.redirectUrl || '/dashboard';
-        window.location.href = redirectUrl;
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '验证失败，请重试');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 第三步：二次认证（仅管理员）
+  // Handle 2FA verification (admin only)
   const handleTwoFA = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      if (!verificationCode) {
+      if (!twoFACode) {
         setError('请输入验证码');
         return;
       }
@@ -160,7 +194,7 @@ export default function SignInPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          code: verificationCode,
+          code: twoFACode,
         }),
       });
 
@@ -171,10 +205,12 @@ export default function SignInPage() {
         return;
       }
 
+      // Bridge custom JWT → NextAuth session cookie so admin API getServerSession() works
       localStorage.setItem('auth_token', data.token);
+      await signIn('token', { token: data.token, redirect: false });
       window.location.href = data.redirectUrl || '/admin';
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '验证失败，请重试');
+    } catch {
+      setError('验证失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -192,282 +228,242 @@ export default function SignInPage() {
           <p className="text-gray-600 text-sm mt-1">您身边的服务专家</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          {/* 第一步：登录 */}
-          {step === 'input' && (
-            <>
-              <h2 className="text-xl font-bold text-gray-800 mb-6">登录</h2>
+        {step === 'input' && (
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            {/* Login Method Tabs */}
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => {
+                  setLoginMethod('password');
+                  setError('');
+                }}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  loginMethod === 'password'
+                    ? 'bg-[#0d9488] text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                密码登录
+              </button>
+              <button
+                onClick={() => {
+                  setLoginMethod('code');
+                  setError('');
+                }}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  loginMethod === 'code'
+                    ? 'bg-[#0d9488] text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                验证码登录
+              </button>
+            </div>
 
-              {/* Error Alert */}
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
-                  <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-700 text-sm">{error}</p>
+            {/* Error Alert */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+                <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              {/* Identifier Input (auto-detect email/phone) */}
+              <div>
+                <div className="relative">
+                  {identifierType === 'email' ? (
+                    <Mail size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                  ) : (
+                    <Phone size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                  )}
+                  <input
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => handleIdentifierChange(e.target.value)}
+                    placeholder="请输入邮箱或手机号"
+                    className={inputClass + ' pl-10'}
+                    required
+                  />
                 </div>
-              )}
-
-              {/* Login Method Tabs */}
-              <div className="flex gap-2 mb-6">
-                <button
-                  onClick={() => setLoginMethod('password')}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    loginMethod === 'password'
-                      ? 'bg-[#0d9488] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  密码登录
-                </button>
-                <button
-                  onClick={() => setLoginMethod('code')}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    loginMethod === 'code'
-                      ? 'bg-[#0d9488] text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {identifierType === 'email' ? '邮箱验证码' : '短信验证码'}
-                </button>
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
-                {/* Identifier Type Selector */}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIdentifierType('email')}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                      identifierType === 'email'
-                        ? 'bg-[#0d9488]/10 text-[#0d9488] border border-[#0d9488]'
-                        : 'bg-gray-50 text-gray-700 border border-gray-200'
-                    }`}
-                  >
-                    邮箱
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIdentifierType('phone')}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                      identifierType === 'phone'
-                        ? 'bg-[#0d9488]/10 text-[#0d9488] border border-[#0d9488]'
-                        : 'bg-gray-50 text-gray-700 border border-gray-200'
-                    }`}
-                  >
-                    手机号
-                  </button>
-                </div>
-
-                {/* Identifier Input */}
+              {/* Password (password login mode) */}
+              {loginMethod === 'password' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    {identifierType === 'email' ? '邮箱地址' : '手机号'} *
-                  </label>
                   <div className="relative">
-                    {identifierType === 'email' ? (
-                      <Mail size={18} className="absolute left-3 top-3 text-gray-400" />
-                    ) : (
-                      <Phone size={18} className="absolute left-3 top-3 text-gray-400" />
-                    )}
+                    <Lock size={18} className="absolute left-3 top-3.5 text-gray-400" />
                     <input
-                      type={identifierType === 'email' ? 'email' : 'tel'}
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder={identifierType === 'email' ? 'your@email.com' : '+1-416-555-0000'}
-                      className={inputClass + ' pl-10'}
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="请输入密码"
+                      className={inputClass + ' pl-10 pr-10'}
                       required
                     />
-                  </div>
-                </div>
-
-                {/* Password (only for password login) */}
-                {loginMethod === 'password' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      密码 *
-                    </label>
-                    <div className="relative">
-                      <Lock size={18} className="absolute left-3 top-3 text-gray-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="输入密码"
-                        className={inputClass + ' pl-10 pr-10'}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Forgot Password */}
-                {loginMethod === 'password' && (
-                  <div className="text-right">
                     <button
                       type="button"
-                      className="text-sm text-[#0d9488] hover:text-[#0a7c71] font-medium transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      忘记密码？
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Verification Code (code login mode) */}
+              {loginMethod === 'code' && (
+                <div>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="请输入验证码"
+                      className={inputClass + ' flex-1'}
+                      maxLength={6}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendCode}
+                      disabled={sendingCode || countdown > 0 || !identifier}
+                      className="px-4 py-3 text-sm font-medium rounded-xl whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-[#0d9488]/10 text-[#0d9488] hover:bg-[#0d9488]/20 border border-[#0d9488]/30"
+                    >
+                      {sendingCode
+                        ? '发送中...'
+                        : countdown > 0
+                        ? `${countdown}s`
+                        : codeSent
+                        ? '重新发送'
+                        : '获取验证码'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Terms Agreement Checkbox */}
+              <div className="flex items-start gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#0d9488] focus:ring-[#0d9488] cursor-pointer accent-[#0d9488]"
+                />
+                <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
+                  登录代表同意{' '}
+                  <Link href="/terms" className="text-[#0d9488] hover:underline">
+                    《服务协议》
+                  </Link>
+                  {' '}和{' '}
+                  <Link href="/privacy" className="text-[#0d9488] hover:underline">
+                    《隐私政策》
+                  </Link>
+                </label>
+              </div>
+
+              {/* Login Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-[#0d9488] text-white font-semibold rounded-xl hover:bg-[#0a7c71] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    处理中...
+                  </span>
+                ) : (
+                  '登录'
                 )}
+              </button>
+            </form>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-[#0d9488] text-white font-semibold rounded-xl hover:bg-[#0a7c71] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      处理中...
-                    </span>
-                  ) : (
-                    '登录'
-                  )}
-                </button>
-              </form>
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400">或</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 my-6">
-                <div className="flex-1 h-px bg-gray-300" />
-                <span className="text-xs text-gray-500">或</span>
-                <div className="flex-1 h-px bg-gray-300" />
+            {/* Sign Up Link */}
+            <p className="text-sm text-gray-600 text-center">
+              还没有账户？{' '}
+              <Link href="/register/service-provider" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
+                立即注册
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {/* 2FA Step (admin only) */}
+        {step === '2fa' && (
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3">
+              <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800 mb-1">安全验证</p>
+                <p className="text-xs text-amber-700">
+                  请输入发送到您邮箱的验证码以完成登录
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
+                <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleTwoFA} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  验证码 (6位)
+                </label>
+                <input
+                  type="text"
+                  value={twoFACode}
+                  onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className={inputClass + ' text-center text-2xl tracking-widest font-bold'}
+                  maxLength={6}
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  请输入发送到您邮箱中的6位验证码
+                </p>
               </div>
 
-              {/* Sign Up Link */}
-              <p className="text-sm text-gray-600 text-center">
-                还没有账户？{' '}
-                <Link href="/register/service-provider" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
-                  注册服务商
-                </Link>
-              </p>
-            </>
-          )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-[#0d9488] text-white font-semibold rounded-xl hover:bg-[#0a7c71] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                {loading ? '验证中...' : '验证并登录'}
+              </button>
 
-          {/* 第二步：验证码验证 */}
-          {step === 'verify' && (
-            <>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">输入验证码</h2>
-              <p className="text-gray-600 text-sm mb-6">
-                验证码已发送到您的{identifierType === 'email' ? '邮箱' : '手机号'}
-              </p>
-
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
-                  <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-700 text-sm">{error}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleVerifyCode} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    验证码 *
-                  </label>
-                  <input
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    className={inputClass + ' text-center text-2xl tracking-widest font-bold'}
-                    maxLength={6}
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-[#0d9488] text-white font-semibold rounded-xl hover:bg-[#0a7c71] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? '验证中...' : '验证'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('input');
-                    setVerificationCode('');
-                    setError('');
-                  }}
-                  className="w-full py-2 text-gray-700 font-medium hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  返回
-                </button>
-              </form>
-            </>
-          )}
-
-          {/* 第三步：二次认证（仅管理员） */}
-          {step === '2fa' && (
-            <>
-              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3">
-                <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800 mb-1">🔒 安全验证</p>
-                  <p className="text-xs text-amber-700">
-                    请输入发送到您邮箱的验证码以完成登录
-                  </p>
-                </div>
-              </div>
-
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
-                  <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-700 text-sm">{error}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleTwoFA} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    验证码 (6位) *
-                  </label>
-                  <input
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    className={inputClass + ' text-center text-2xl tracking-widest font-bold'}
-                    maxLength={6}
-                    required
-                    autoFocus
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    请输入发送到您邮箱中的6位验证码
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-[#0d9488] text-white font-semibold rounded-xl hover:bg-[#0a7c71] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? '验证中...' : '验证并登录'}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('input');
+                  setTwoFACode('');
+                  setError('');
+                }}
+                className="w-full py-2 text-gray-600 font-medium hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                返回
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Footer */}
-        <p className="text-xs text-gray-500 text-center mt-6 px-2">
-          继续表示您同意{' '}
-          <Link href="/terms" className="text-[#0d9488] hover:underline">
-            服务条款
-          </Link>
-          {' '}和{' '}
-          <Link href="/privacy" className="text-[#0d9488] hover:underline">
-            隐私政策
-          </Link>
+        <p className="text-xs text-gray-400 text-center mt-6 px-2">
+          &copy; 2024 优服佳 版权所有
         </p>
       </div>
     </div>

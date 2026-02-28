@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Search, Edit2, Trash2, Star, CheckCircle, AlertCircle } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 
 interface ServiceProvider {
   id: string;
@@ -91,8 +92,11 @@ const statusLabels: Record<string, string> = {
   SUSPENDED: '暂停',
 };
 
+const PAGE_SIZE = 5;
+
 export default function ProvidersPage() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const filtered = MOCK_PROVIDERS.filter((p) => {
     const matchSearch = !search ||
@@ -101,6 +105,11 @@ export default function ProvidersPage() {
       p.email.toLowerCase().includes(search.toLowerCase());
     return matchSearch;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const handleSearch = (val: string) => { setSearch(val); setPage(1); };
 
   const stats = {
     total: MOCK_PROVIDERS.length,
@@ -136,7 +145,7 @@ export default function ProvidersPage() {
         <input
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           placeholder="搜索服务商名称 / 公司 / 邮箱..."
           className="w-full pl-9 pr-4 py-2 text-sm border border-card-border rounded-lg bg-card text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40"
         />
@@ -159,14 +168,14 @@ export default function ProvidersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paged.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-text-muted">
                     未找到匹配的服务商
                   </td>
                 </tr>
               ) : (
-                filtered.map((provider) => (
+                paged.map((provider) => (
                   <tr key={provider.id} className="border-b border-card-border hover:bg-opacity-50">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
@@ -220,6 +229,13 @@ export default function ProvidersPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={filtered.length}
+          limit={PAGE_SIZE}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

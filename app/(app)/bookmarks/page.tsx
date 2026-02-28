@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { ArrowLeft, Heart, Trash2, Star, MapPin, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { MOCK_SERVICES } from '@/lib/mockServices';
 
 export default function BookmarksPage() {
+  const t = useTranslations('bookmarks');
+  const tCommon = useTranslations('common');
   const [bookmarks, setBookmarks] = useState(MOCK_SERVICES.slice(0, 3));
 
   const remove = (id: string) => setBookmarks((prev) => prev.filter((s) => s.id !== id));
@@ -14,9 +17,9 @@ export default function BookmarksPage() {
     <div className="pb-6">
       <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center gap-3">
         <Link href="/profile" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm transition-colors">
-          <ArrowLeft size={18} />返回
+          <ArrowLeft size={18} />{tCommon('back')}
         </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm">我的收藏</span>
+        <span className="font-semibold text-text-primary dark:text-white text-sm">{t('title')}</span>
         <span className="ml-auto text-xs text-text-muted">{bookmarks.length} 项</span>
       </div>
 
@@ -24,8 +27,8 @@ export default function BookmarksPage() {
         {bookmarks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-text-muted">
             <Heart size={40} className="mb-3 opacity-30" />
-            <p className="text-sm">暂无收藏</p>
-            <Link href="/services" className="mt-3 text-sm text-[#0d9488]">去浏览服务 →</Link>
+            <p className="text-sm">{t('empty')}</p>
+            <Link href="/services" className="mt-3 text-sm text-[#0d9488]">{t('browseServices')}</Link>
           </div>
         ) : (
           bookmarks.map((s) => (
@@ -52,7 +55,7 @@ export default function BookmarksPage() {
               <button
                 onClick={() => remove(s.id)}
                 className="px-3 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors flex-shrink-0"
-                aria-label="取消收藏"
+                aria-label={t('removeBookmark')}
               >
                 <Trash2 size={16} />
               </button>

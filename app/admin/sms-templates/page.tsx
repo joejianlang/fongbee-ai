@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Edit2, Eye, Save, X } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 
 interface SMSTemplate {
   id: string;
@@ -18,6 +19,8 @@ interface SMSTemplate {
 const inputCls =
   'w-full px-3 py-2 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40';
 
+const LIMIT = 10;
+
 export default function SMSTemplatesPage() {
   const [templates, setTemplates] = useState<SMSTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,17 +28,26 @@ export default function SMSTemplatesPage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<SMSTemplate>>({});
   const [saveLoading, setSaveLoading] = useState(false);
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     loadTemplates();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const loadTemplates = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/admin/sms-templates');
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      const res = await fetch(`/api/admin/sms-templates?${params}`);
       const data = await res.json();
       if (data.success) {
-        setTemplates(data.data);
+        setTemplates(data.data.items);
+        setTotal(data.data.total);
+        setTotalPages(data.data.totalPages);
       }
     } catch (error) {
       console.error('Failed to load templates:', error);
@@ -88,10 +100,6 @@ export default function SMSTemplatesPage() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12 text-text-muted">加载中...</div>;
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -102,7 +110,11 @@ export default function SMSTemplatesPage() {
 
       {/* Templates List */}
       <div className="space-y-4">
-        {templates.map((template) => (
+        {loading ? (
+          <div className="text-center py-12 text-text-muted">加载中...</div>
+        ) : templates.length === 0 ? (
+          <div className="text-center py-12 text-text-muted">暂无短信模板</div>
+        ) : templates.map((template) => (
           <div key={template.id} className="bg-card border border-card-border rounded-xl overflow-hidden">
             {editingId === template.id ? (
               // Edit Mode
@@ -249,6 +261,15 @@ export default function SMSTemplatesPage() {
             )}
           </div>
         ))}
+
+        {/* Pagination */}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={LIMIT}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

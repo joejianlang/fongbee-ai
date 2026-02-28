@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, ChevronDown, ChevronUp, Search, MessageCircle } from 'lucide-react';
 
 const FAQ = [
@@ -31,6 +32,8 @@ const FAQ = [
 ];
 
 export default function HelpPage() {
+  const t = useTranslations('help');
+  const tCommon = useTranslations('common');
   const [openItem, setOpenItem] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
@@ -45,9 +48,9 @@ export default function HelpPage() {
     <div className="pb-6">
       <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center gap-3">
         <Link href="/profile" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm transition-colors">
-          <ArrowLeft size={18} />返回
+          <ArrowLeft size={18} />{tCommon('back')}
         </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm">使用帮助</span>
+        <span className="font-semibold text-text-primary dark:text-white text-sm">{t('title')}</span>
       </div>
 
       {/* 搜索 */}
@@ -58,7 +61,7 @@ export default function HelpPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索常见问题..."
+            placeholder={t('searchPlaceholder')}
             className="flex-1 bg-transparent text-sm text-text-primary placeholder-text-muted outline-none"
           />
         </div>
@@ -100,11 +103,11 @@ export default function HelpPage() {
         <div className="bg-[#0d9488]/10 rounded-xl p-4 flex items-center gap-3">
           <MessageCircle size={24} className="text-[#0d9488] flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-text-primary dark:text-white">没找到答案？</p>
-            <p className="text-xs text-text-muted mt-0.5">客服在线时间：周一至周六 9:00–21:00</p>
+            <p className="text-sm font-semibold text-text-primary dark:text-white">{t('noAnswer')}</p>
+            <p className="text-xs text-text-muted mt-0.5">{t('supportHours')}</p>
           </div>
           <button className="text-sm font-medium text-[#0d9488] border border-[#0d9488] px-3 py-1.5 rounded-lg hover:bg-[#0d9488]/10 transition-colors">
-            联系客服
+            {t('contactSupport')}
           </button>
         </div>
       </div>

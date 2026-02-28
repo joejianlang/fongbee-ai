@@ -2,17 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Newspaper, MessageSquare, Store, User } from 'lucide-react';
-
-const navItems = [
-  { href: '/',         label: '新闻', icon: Newspaper },
-  { href: '/forum',    label: '论坛', icon: MessageSquare },
-  { href: '/services', label: '服务', icon: Store },
-  { href: '/profile',  label: '我的', icon: User },
-];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const t = useTranslations('nav');
+
+  const navItems = [
+    { href: '/',         label: t('news'),     icon: Newspaper },
+    { href: '/forum',    label: t('forum'),    icon: MessageSquare },
+    { href: '/services', label: t('services'), icon: Store },
+    { href: '/profile',  label: t('profile'),  icon: User },
+  ];
 
   // 不在管理页面显示
   if (pathname?.startsWith('/admin')) {

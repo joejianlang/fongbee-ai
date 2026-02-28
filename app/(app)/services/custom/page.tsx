@@ -21,6 +21,12 @@ interface CategoryPickerProps {
   onSelect: (cat: ServiceCategoryDef) => void;
 }
 
+/** 判断字符串是否是 emoji（含单个或多个 emoji 字符） */
+function isEmoji(str?: string | null): boolean {
+  if (!str) return false;
+  return /\p{Emoji}/u.test(str);
+}
+
 function CategoryPicker({ categories, loading, onSelect }: CategoryPickerProps) {
   if (loading) {
     return (
@@ -33,9 +39,10 @@ function CategoryPicker({ categories, loading, onSelect }: CategoryPickerProps) 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       {categories.map((cat) => {
-        const Icon = getCategoryIcon(cat.icon);
         const bg = cat.color ? `${cat.color}18` : '#0d948818';
         const fg = cat.color ?? '#0d9488';
+        const emoji = isEmoji(cat.icon);
+        const Icon = emoji ? null : getCategoryIcon(cat.icon);
         return (
           <button
             key={cat.id}
@@ -46,7 +53,10 @@ function CategoryPicker({ categories, loading, onSelect }: CategoryPickerProps) 
               className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
               style={{ background: bg, color: fg }}
             >
-              <Icon size={22} />
+              {emoji
+                ? <span className="text-2xl leading-none">{cat.icon}</span>
+                : Icon && <Icon size={22} />
+              }
             </div>
             <p className="text-sm font-semibold text-text-primary dark:text-white leading-tight">{cat.name}</p>
             <p className="text-xs text-text-muted leading-tight line-clamp-2">{cat.description ?? cat.nameEn}</p>

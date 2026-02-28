@@ -2,39 +2,42 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft } from 'lucide-react';
 
-interface ToggleItem { label: string; desc: string; key: string; }
-
-const SETTINGS: { group: string; items: ToggleItem[] }[] = [
-  {
-    group: '订单通知',
-    items: [
-      { key: 'orderConfirm', label: '订单确认',     desc: '服务商接单后通知我' },
-      { key: 'orderRemind',  label: '服务提醒',     desc: '服务前 1 小时提醒' },
-      { key: 'orderComplete',label: '服务完成',     desc: '服务结束后通知' },
-      { key: 'orderCancel',  label: '订单取消',     desc: '订单被取消时通知' },
-    ],
-  },
-  {
-    group: '消息通知',
-    items: [
-      { key: 'newMessage',   label: '新消息',       desc: '收到服务商消息' },
-      { key: 'systemNotice', label: '系统公告',     desc: '平台重要公告' },
-      { key: 'activity',     label: '活动推广',     desc: '优惠活动与新服务推荐' },
-    ],
-  },
-  {
-    group: '通知方式',
-    items: [
-      { key: 'pushNotif',    label: 'App 推送',     desc: '浏览器 Push 通知' },
-      { key: 'emailNotif',   label: '邮件通知',     desc: '发送到注册邮箱' },
-      { key: 'smsNotif',     label: '短信通知',     desc: '发送到注册手机号' },
-    ],
-  },
-];
-
 export default function NotifySettingsPage() {
+  const t = useTranslations('settings');
+  const tN = useTranslations('notify');
+  const tCommon = useTranslations('common');
+
+  const SETTINGS = [
+    {
+      group: tN('orderGroup'),
+      items: [
+        { key: 'orderConfirm',  label: tN('orderConfirm'),  desc: tN('orderConfirmDesc') },
+        { key: 'orderRemind',   label: tN('orderRemind'),   desc: tN('orderRemindDesc') },
+        { key: 'orderComplete', label: tN('orderComplete'), desc: tN('orderCompleteDesc') },
+        { key: 'orderCancel',   label: tN('orderCancel'),   desc: tN('orderCancelDesc') },
+      ],
+    },
+    {
+      group: tN('messageGroup'),
+      items: [
+        { key: 'newMessage',   label: tN('newMessage'),   desc: tN('newMessageDesc') },
+        { key: 'systemNotice', label: tN('systemNotice'), desc: tN('systemNoticeDesc') },
+        { key: 'activity',     label: tN('activity'),     desc: tN('activityDesc') },
+      ],
+    },
+    {
+      group: tN('channelGroup'),
+      items: [
+        { key: 'pushNotif',  label: tN('pushNotif'),  desc: tN('pushNotifDesc') },
+        { key: 'emailNotif', label: tN('emailNotif'), desc: tN('emailNotifDesc') },
+        { key: 'smsNotif',   label: tN('smsNotif'),   desc: tN('smsNotifDesc') },
+      ],
+    },
+  ];
+
   const initState = Object.fromEntries(
     SETTINGS.flatMap((g) => g.items.map((i) => [i.key, i.key !== 'activity' && i.key !== 'smsNotif']))
   );
@@ -46,9 +49,9 @@ export default function NotifySettingsPage() {
     <div className="pb-6">
       <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center gap-3">
         <Link href="/profile" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm transition-colors">
-          <ArrowLeft size={18} />返回
+          <ArrowLeft size={18} />{tCommon('back')}
         </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm">通知设置</span>
+        <span className="font-semibold text-text-primary dark:text-white text-sm">{t('notifyTitle')}</span>
       </div>
 
       <div className="mt-3 px-4 md:px-0 space-y-3">

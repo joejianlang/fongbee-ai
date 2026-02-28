@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, ChevronRight, Package } from 'lucide-react';
 
-type OrderStatus = '全部' | '待确认' | '进行中' | '已完成' | '已取消';
+type OrderStatusKey = 'all' | 'pending' | 'inProgress' | 'completed' | 'cancelled';
+type OrderStatusCn = '待确认' | '进行中' | '已完成' | '已取消';
 
 interface MyOrder {
   id: string;
@@ -14,7 +16,7 @@ interface MyOrder {
   date: string;
   time: string;
   amount: number;
-  status: '待确认' | '进行中' | '已完成' | '已取消';
+  status: OrderStatusCn;
 }
 
 const MY_ORDERS: MyOrder[] = [
@@ -24,17 +26,36 @@ const MY_ORDERS: MyOrder[] = [
   { id: 'ORD-10007', service: '草坪修剪 & 园艺护理', provider: '绿拇指园艺', imageUrl: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=120&h=80&fit=crop', date: '2026-01-30', time: '09:00', amount: 60,   status: '已取消' },
 ];
 
-const STATUS_STYLES: Record<MyOrder['status'], string> = {
+const STATUS_STYLES: Record<OrderStatusCn, string> = {
   '待确认': 'bg-yellow-100 text-yellow-700',
   '进行中': 'bg-blue-100 text-blue-700',
   '已完成': 'bg-green-100 text-green-700',
   '已取消': 'bg-gray-100 text-gray-500',
 };
 
-export default function MyOrdersPage() {
-  const [tab, setTab] = useState<OrderStatus>('全部');
+const STATUS_KEYS: Record<OrderStatusCn, OrderStatusKey> = {
+  '待确认': 'pending',
+  '进行中': 'inProgress',
+  '已完成': 'completed',
+  '已取消': 'cancelled',
+};
 
-  const filtered = tab === '全部' ? MY_ORDERS : MY_ORDERS.filter((o) => o.status === tab);
+const TABS: { key: OrderStatusKey; filter: OrderStatusCn | null }[] = [
+  { key: 'all',       filter: null },
+  { key: 'pending',   filter: '待确认' },
+  { key: 'inProgress',filter: '进行中' },
+  { key: 'completed', filter: '已完成' },
+  { key: 'cancelled', filter: '已取消' },
+];
+
+export default function MyOrdersPage() {
+  const t = useTranslations('orders');
+  const tCommon = useTranslations('common');
+  const [activeTab, setActiveTab] = useState<OrderStatusKey>('all');
+
+  const filtered = activeTab === 'all'
+    ? MY_ORDERS
+    : MY_ORDERS.filter((o) => STATUS_KEYS[o.status] === activeTab);
 
   return (
     <div className="pb-6">
@@ -42,22 +63,22 @@ export default function MyOrdersPage() {
       <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center gap-3">
         <Link href="/profile" className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary text-sm transition-colors">
           <ArrowLeft size={18} />
-          返回
+          {tCommon('back')}
         </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm">我的订单</span>
+        <span className="font-semibold text-text-primary dark:text-white text-sm">{t('title')}</span>
       </div>
 
       {/* Tab */}
       <div className="bg-white dark:bg-[#2d2d30] border-b border-border-primary flex overflow-x-auto scrollbar-hide">
-        {(['全部', '待确认', '进行中', '已完成', '已取消'] as OrderStatus[]).map((t) => (
+        {TABS.map(({ key }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={key}
+            onClick={() => setActiveTab(key)}
             className={`flex-shrink-0 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === t ? 'border-[#0d9488] text-[#0d9488]' : 'border-transparent text-text-muted hover:text-text-primary'
+              activeTab === key ? 'border-[#0d9488] text-[#0d9488]' : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
           >
-            {t}
+            {t(key)}
           </button>
         ))}
       </div>
@@ -67,7 +88,7 @@ export default function MyOrdersPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-text-muted">
             <Package size={40} className="mb-3 opacity-30" />
-            <p className="text-sm">暂无订单</p>
+            <p className="text-sm">{t('noOrders')}</p>
           </div>
         ) : (
           filtered.map((o) => (
@@ -80,7 +101,9 @@ export default function MyOrdersPage() {
               <div className="flex-1 p-3 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold text-text-primary dark:text-white line-clamp-1">{o.service}</p>
-                  <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[o.status]}`}>{o.status}</span>
+                  <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[o.status]}`}>
+                    {t(STATUS_KEYS[o.status])}
+                  </span>
                 </div>
                 <p className="text-xs text-[#0d9488] mt-0.5">{o.provider}</p>
                 <p className="text-xs text-text-muted mt-1">{o.date} {o.time}</p>

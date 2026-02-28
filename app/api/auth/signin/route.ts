@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { compare } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { sendEmail } from '@/lib/email';
 
 const signInSchema = z.object({
   identifier: z.string().min(1),
@@ -28,7 +29,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         id: true,
         email: true,
         phone: true,
-        name: true,
+        firstName: true,
+        lastName: true,
         password: true,
         role: true,
       },
@@ -68,12 +70,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         data: {
           userId: user.id,
           token: sessionId,
-          type: '2FA_SESSION',
+          type: 'TWO_FA_SESSION',
           expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         },
       });
 
-      // TODO: Send 2FA code to email
+      // Generate and store 2FA code
       const twoFACode = Math.floor(
         100000 + Math.random() * 900000
       ).toString();
@@ -81,12 +83,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         data: {
           userId: user.id,
           token: twoFACode,
-          type: '2FA_CODE',
+          type: 'TWO_FA_CODE',
           expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
         },
       });
 
-      console.log(`[DEV] 2FA code for admin ${user.email}: ${twoFACode}`);
+      // Send 2FA code via email (dev: also log to console)
+      if (process.env.NODE_ENV === 'production') {
+        await sendEmail({
+          to: user.email,
+          subject: '优服佳管理后台 - 登录验证码',
+          htmlContent: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+              <h2 style="color:#0d9488">优服佳管理后台</h2>
+              <p>您正在登录管理后台，请使用以下验证码完成身份验证：</p>
+              <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#0d9488;
+                          background:#f0fdfa;padding:20px;text-align:center;border-radius:8px;
+                          margin:24px 0">${twoFACode}</div>
+              <p style="color:#6b7280;font-size:14px">验证码 10 分钟内有效，请勿泄露给他人。</p>
+              <p style="color:#6b7280;font-size:14px">如非本人操作，请忽略此邮件。</p>
+            </div>
+          `,
+        });
+      } else {
+        // Dev: print to terminal for easy access
+        console.log(`[DEV] 2FA code for admin ${user.email}: ${twoFACode}`);
+      }
 
       return NextResponse.json(
         {
@@ -128,7 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           id: user.id,
           email: user.email,
           phone: user.phone,
-          name: user.name,
+          name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
           role: user.role,
         },
         token,

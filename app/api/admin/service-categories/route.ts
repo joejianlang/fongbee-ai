@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { ApiResponse, ServiceCategoryDef } from '@/lib/types';
+import { ApiResponse, PaginatedResponse, ServiceCategoryDef } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -14,22 +14,51 @@ const categorySchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+const getQuerySchema = z.object({
+  page:  z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
+});
+
 /**
  * GET /api/admin/service-categories
- * 获取所有服务分类（含表单字段数量）
+ * 获取服务分类列表（含表单字段数量，分页）
  */
 export async function GET(
-  _req: NextRequest
-): Promise<NextResponse<ApiResponse<ServiceCategoryDef[]>>> {
+  req: NextRequest
+): Promise<NextResponse<ApiResponse<PaginatedResponse<ServiceCategoryDef>>>> {
   try {
-    const categories = await prisma.serviceCategory.findMany({
-      include: {
-        _count: { select: { formFields: true } },
-      },
-      orderBy: { displayOrder: 'asc' },
+    const sp = req.nextUrl.searchParams;
+    const parsed = getQuerySchema.safeParse({
+      page:  sp.get('page')  || undefined,
+      limit: sp.get('limit') || undefined,
     });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: parsed.error.errors[0].message }, { status: 400 });
+    }
 
-    return NextResponse.json({ success: true, data: categories as unknown as ServiceCategoryDef[] });
+    const { page, limit } = parsed.data;
+    const skip = (page - 1) * limit;
+
+    const [categories, total] = await Promise.all([
+      prisma.serviceCategory.findMany({
+        include: { _count: { select: { formFields: true } } },
+        orderBy: { displayOrder: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.serviceCategory.count(),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        items: categories as unknown as ServiceCategoryDef[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : '获取分类失败' },
