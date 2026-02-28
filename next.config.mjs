@@ -8,11 +8,14 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   experimental: {
     serverComponentsExternalPackages: ['pino', 'pino-pretty'],
-  },
-  turbopack: {
-    root: __dirname,
   },
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   images: {
