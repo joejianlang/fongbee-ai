@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
   LayoutDashboard,
@@ -88,8 +88,18 @@ export default function AdminLayout({
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const router   = useRouter();
+  const { data: session, status } = useSession();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // 非 ADMIN 角色一律跳回首页
+  useEffect(() => {
+    if (status === 'loading') return;
+    const role = (session?.user as { role?: string })?.role;
+    if (status === 'unauthenticated' || role !== 'ADMIN') {
+      router.replace('/');
+    }
+  }, [status, session, router]);
 
   // Close user dropdown when clicking outside
   useEffect(() => {
@@ -115,6 +125,16 @@ export default function AdminLayout({
     }
     return false;
   };
+
+  // 未加载完或非 ADMIN 时不渲染内容，避免页面闪烁
+  const role = (session?.user as { role?: string })?.role;
+  if (status === 'loading' || role !== 'ADMIN') {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-[#0d9488] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">

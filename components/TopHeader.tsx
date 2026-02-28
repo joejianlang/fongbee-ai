@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   Newspaper, MessageSquare, Store, User,
@@ -21,6 +22,8 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   const t         = useTranslations('header');
   const tNav      = useTranslations('nav');
   const locale    = useLocale();
+  const { data: session } = useSession();
+  const isAdmin   = (session?.user as { role?: string })?.role === 'ADMIN';
 
   const [dark,    setDark]    = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -188,14 +191,16 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
 
         <div className="flex-1 md:flex-none" />
 
-        {/* ── 管理中心（PC） ── */}
-        <Link
-          href="/admin"
-          className="hidden md:flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs px-3 py-1.5 rounded-full transition-colors"
-        >
-          <Settings size={13} />
-          {t('adminCenter')}
-        </Link>
+        {/* ── 管理中心（PC，仅 ADMIN 可见） ── */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="hidden md:flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs px-3 py-1.5 rounded-full transition-colors"
+          >
+            <Settings size={13} />
+            {t('adminCenter')}
+          </Link>
+        )}
 
         {/* ── 书签 ── */}
         <button
@@ -260,14 +265,16 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
               <span className="text-sm font-medium">{label}</span>
             </Link>
           ))}
-          <Link
-            href="/admin"
-            onClick={() => setMenuOpen(false)}
-            className="flex items-center gap-3 px-6 py-3 text-white/90 hover:bg-white/10 transition-colors border-t border-white/10"
-          >
-            <Settings size={18} />
-            <span className="text-sm font-medium">{t('adminCenter')}</span>
-          </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 px-6 py-3 text-white/90 hover:bg-white/10 transition-colors border-t border-white/10"
+            >
+              <Settings size={18} />
+              <span className="text-sm font-medium">{t('adminCenter')}</span>
+            </Link>
+          )}
         </nav>
       )}
     </header>
