@@ -17,10 +17,10 @@ export default function ProfilePage() {
     {
       group: t('myServices'),
       items: [
-        { icon: FileText,       label: t('myOrders'),     href: '/orders',         badge: '' },
-        { icon: ClipboardList,  label: t('customOrders'), href: '/orders/custom',  badge: '' },
-        { icon: Heart,          label: t('myBookmarks'),  href: '/bookmarks',      badge: '' },
-        { icon: Star,           label: t('myReviews'),    href: '/reviews',        badge: '' },
+        { icon: FileText,       label: t('myOrders'),     href: '/orders' },
+        { icon: ClipboardList,  label: t('customOrders'), href: '/orders/custom' },
+        { icon: Heart,          label: t('myBookmarks'),  href: '/bookmarks' },
+        { icon: Star,           label: t('myReviews'),    href: '/reviews' },
       ],
     },
     {
@@ -36,8 +36,8 @@ export default function ProfilePage() {
     {
       group: t('help'),
       items: [
-        { icon: BookOpen, label: t('useHelp'), href: '/help',   badge: '' },
-        { icon: Settings, label: t('aboutUs'), href: '/about',  badge: '' },
+        { icon: BookOpen, label: t('useHelp'), href: '/help',  badge: '' },
+        { icon: Settings, label: t('aboutUs'), href: '/about', badge: '' },
       ],
     },
   ];
@@ -51,6 +51,55 @@ export default function ProfilePage() {
     ?? user?.email?.split('@')[0]
     ?? '';
 
+  /* ── Loading ── */
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center py-20">
+        <Loader size={24} className="animate-spin text-[#0d9488]" />
+      </div>
+    );
+  }
+
+  /* ── Guest / Not authenticated ── */
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col pb-6">
+        {/* 登录 / 注册 按钮 */}
+        <div className="px-4 pt-6 flex gap-3">
+          <Link
+            href="/auth/login"
+            className="flex-1 py-3 rounded-xl border-2 border-[#0d9488] text-[#0d9488] font-semibold text-sm text-center transition-colors hover:bg-[#0d9488]/5"
+          >
+            {t('goLogin')}
+          </Link>
+          <Link
+            href="/auth/register"
+            className="flex-1 py-3 rounded-xl border-2 border-[#0d9488] bg-[#0d9488] text-white font-semibold text-sm text-center transition-colors hover:bg-[#0a7c71]"
+          >
+            {t('register')}
+          </Link>
+        </div>
+
+        {/* 空态占位 */}
+        <div className="flex flex-col items-center justify-center gap-4 mt-20 px-8">
+          <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center">
+            <User size={48} className="text-gray-300 dark:text-white/20" />
+          </div>
+          <p className="text-text-primary dark:text-white font-semibold text-lg text-center">
+            {t('loginToViewCenter')}
+          </p>
+          <Link
+            href="/auth/login"
+            className="mt-1 px-10 py-3 bg-[#0d9488] text-white font-semibold rounded-xl hover:bg-[#0a7c71] transition-colors text-sm"
+          >
+            {t('loginNow')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Authenticated ── */
   return (
     <div className="pb-6">
       {/* 头部个人信息卡 */}
@@ -64,31 +113,9 @@ export default function ProfilePage() {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          {isLoading ? (
-            <div className="space-y-1.5">
-              <div className="h-5 w-32 bg-white/30 rounded animate-pulse" />
-              <div className="h-3.5 w-48 bg-white/20 rounded animate-pulse" />
-            </div>
-          ) : isAuthenticated ? (
-            <>
-              <p className="text-white font-bold text-lg truncate">{fullName || t('user')}</p>
-              <p className="text-white/70 text-sm mt-0.5 truncate">{user?.email}</p>
-            </>
-          ) : (
-            <>
-              <p className="text-white font-bold text-lg">{t('loginRegister')}</p>
-              <p className="text-white/70 text-sm mt-0.5">{t('loginPrompt')}</p>
-            </>
-          )}
+          <p className="text-white font-bold text-lg truncate">{fullName || t('user')}</p>
+          <p className="text-white/70 text-sm mt-0.5 truncate">{user?.email}</p>
         </div>
-        {!isAuthenticated && !isLoading && (
-          <Link
-            href="/auth/login"
-            className="ml-auto bg-white text-[#0d9488] text-sm font-semibold px-4 py-2 rounded-full hover:bg-white/90 transition-colors flex-shrink-0"
-          >
-            {t('goLogin')}
-          </Link>
-        )}
       </div>
 
       {/* 快捷统计 */}
@@ -100,7 +127,7 @@ export default function ProfilePage() {
         ].map(({ label, value, href }) => (
           <Link
             key={label}
-            href={isAuthenticated ? href : '/auth/login'}
+            href={href}
             className="flex flex-col items-center py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
           >
             <span className="text-xl font-bold text-text-primary dark:text-white">{value}</span>
@@ -117,7 +144,7 @@ export default function ProfilePage() {
             {items.map(({ icon: Icon, label, href, badge }) => (
               <Link
                 key={href}
-                href={isAuthenticated ? href : '/auth/login'}
+                href={href}
                 className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-t border-border-primary first:border-0"
               >
                 <Icon size={18} className="text-text-secondary flex-shrink-0" />
@@ -133,22 +160,16 @@ export default function ProfilePage() {
           </div>
         ))}
 
-        {/* 退出登录 / 加载状态 */}
-        {isAuthenticated ? (
-          <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
-            <button
-              onClick={() => signOut({ callbackUrl: '/' })}
-              className="w-full flex items-center justify-center gap-2 py-4 text-red-500 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-            >
-              <LogOut size={16} />
-              {t('logout')}
-            </button>
-          </div>
-        ) : isLoading ? (
-          <div className="flex justify-center py-4">
-            <Loader size={20} className="animate-spin text-[#0d9488]" />
-          </div>
-        ) : null}
+        {/* 退出登录 */}
+        <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="w-full flex items-center justify-center gap-2 py-4 text-red-500 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+          >
+            <LogOut size={16} />
+            {t('logout')}
+          </button>
+        </div>
       </div>
     </div>
   );
