@@ -1,0 +1,16 @@
+name: Cron - Capture Deposits
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # 每 5 分钟
+  workflow_dispatch:          # 允许手动触发
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${{ secrets.PROD_URL }}/api/cron/capture-deposits" \
+            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}"

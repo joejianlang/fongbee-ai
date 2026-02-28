@@ -1,0 +1,16 @@
+name: Cron - Process Deletions
+
+on:
+  schedule:
+    - cron: '0 2 * * *'     # 每天凌晨 2 点
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${{ secrets.PROD_URL }}/api/cron/process-deletions" \
+            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}"

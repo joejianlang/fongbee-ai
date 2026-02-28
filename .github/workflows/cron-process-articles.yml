@@ -1,0 +1,16 @@
+name: Cron - Process Articles
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # 每 15 分钟
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${{ secrets.PROD_URL }}/api/cron/process-articles" \
+            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}"
