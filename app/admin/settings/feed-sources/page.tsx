@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Rss, Youtube, Plus, Trash2, RefreshCw, CheckCircle2,
-  XCircle, Clock, AlertCircle, Loader2, Play, Database,
+  XCircle, Clock, AlertCircle, Loader2, Play, Database, ImageIcon,
 } from 'lucide-react';
 
 type FeedType = 'RSS' | 'YOUTUBE';
@@ -68,6 +68,7 @@ export default function FeedSourcesPage() {
   const [addError, setAddError]     = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
   const [initMessage,  setInitMessage]  = useState<string | null>(null);
+  const [backfilling,  setBackfilling]  = useState(false);
 
   // ── Load sources from API ────────────────────────────────────────────────
   const loadSources = useCallback(async () => {
@@ -187,6 +188,24 @@ export default function FeedSourcesPage() {
     }
   };
 
+  const handleBackfill = async () => {
+    setBackfilling(true);
+    setInitMessage(null);
+    try {
+      const res  = await fetch('/api/admin/backfill-images', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setInitMessage(`🖼️ ${data.message}`);
+      } else {
+        setInitMessage(`❌ ${data.error}`);
+      }
+    } catch {
+      setInitMessage('❌ 补充图片失败，请重试');
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const handleAdd = async () => {
     if (!newName.trim() || !newUrl.trim()) return;
     setAdding(true);
@@ -235,6 +254,14 @@ export default function FeedSourcesPage() {
           >
             {initializing ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
             初始化默认来源
+          </button>
+          <button
+            onClick={handleBackfill}
+            disabled={backfilling}
+            className="flex items-center gap-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg text-sm hover:bg-blue-50 transition-colors disabled:opacity-60"
+          >
+            {backfilling ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+            补充图片
           </button>
           <button
             onClick={handleCrawlAll}
