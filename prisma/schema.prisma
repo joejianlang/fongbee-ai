@@ -93,6 +93,7 @@ enum UserRole {
   CUSTOMER
   SERVICE_PROVIDER
   ADMIN
+  SALES_PARTNER
 }
 
 enum UserStatus {
@@ -941,7 +942,7 @@ model FeedSource {
   name          String
   type          FeedType
   url           String    @unique
-  crawlCron     String    @default("0 */6 * * *") // 默认每 6 小时
+  crawlCron     String    @default("0 */1 * * *") // 默认每 1 小时
   isActive      Boolean   @default(true)
   lastCrawledAt DateTime?
   nextCrawlAt   DateTime?

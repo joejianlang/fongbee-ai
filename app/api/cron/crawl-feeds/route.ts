@@ -1,10 +1,10 @@
 /**
- * POST /api/cron/crawl-feeds
+ * GET  /api/cron/crawl-feeds  — Vercel Cron trigger (Authorization: Bearer CRON_SECRET)
+ * POST /api/cron/crawl-feeds  — External cron / manual trigger (x-cron-key: CRON_API_KEY)
  *
- * Cron job: Crawls all active FeedSources where nextCrawlAt <= now (or null).
+ * Crawls all active FeedSources where nextCrawlAt <= now (or null).
  * Batch limit: 20 sources per run.
- * Calculates nextCrawlAt by adding 6 hours for default cron schedule.
- * Auth: x-cron-key header.
+ * Calculates nextCrawlAt using each source's crawlCron (default: every 1 hour).
  */
 
 import { prisma } from '@/lib/db';
@@ -16,41 +16,47 @@ import { crawlYouTubeSource } from '@/lib/crawler/youtube';
 const BATCH_LIMIT = 20;
 
 /**
+ * Verify that the request comes from an authorised caller.
+ * Supports two methods:
+ *  1. x-cron-key header  (external cron / local testing)
+ *  2. Authorization: Bearer CRON_SECRET  (Vercel Cron)
+ */
+function isAuthorized(req: NextRequest): boolean {
+  const cronKey = req.headers.get('x-cron-key');
+  if (cronKey && cronKey === process.env.CRON_API_KEY) return true;
+
+  const auth = req.headers.get('authorization');
+  if (auth && process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`) return true;
+
+  return false;
+}
+
+/**
  * Parse crawlCron string to determine the next crawl interval in ms.
- * Supports common patterns; defaults to 6 hours.
+ * Supports common patterns; defaults to 1 hour.
  */
 function getNextCrawlAt(crawlCron: string): Date {
   const now = new Date();
-  // Parse simple interval patterns
   // "*/15 * * * *" -> 15 minutes
-  // "0 */6 * * *" -> 6 hours
-  // "0 */1 * * *" -> 1 hour
   const minuteMatch = crawlCron.match(/^\*\/(\d+) \* \* \* \*$/);
   if (minuteMatch) {
     const minutes = parseInt(minuteMatch[1], 10);
     return new Date(now.getTime() + minutes * 60 * 1000);
   }
 
+  // "0 */6 * * *" -> 6 hours  |  "0 */1 * * *" -> 1 hour
   const hourMatch = crawlCron.match(/^0 \*\/(\d+) \* \* \*$/);
   if (hourMatch) {
     const hours = parseInt(hourMatch[1], 10);
     return new Date(now.getTime() + hours * 60 * 60 * 1000);
   }
 
-  // Default: 6 hours
-  return new Date(now.getTime() + 6 * 60 * 60 * 1000);
+  // Default: 1 hour
+  return new Date(now.getTime() + 1 * 60 * 60 * 1000);
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>> {
-  // Verify cron API key
-  const cronKey = req.headers.get('x-cron-key');
-  if (cronKey !== process.env.CRON_API_KEY) {
-    return NextResponse.json(
-      { success: false, message: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
-
+/** Core crawl logic shared by both GET and POST handlers */
+async function runCrawl(): Promise<NextResponse<ApiResponse>> {
   const startTime = Date.now();
   const now = new Date();
   const results = {
@@ -176,4 +182,20 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
       { status: 500 }
     );
   }
+}
+
+/** GET — Vercel Cron calls this every hour (Authorization: Bearer CRON_SECRET) */
+export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse>> {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  }
+  return runCrawl();
+}
+
+/** POST — External cron services / manual trigger (x-cron-key: CRON_API_KEY) */
+export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>> {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  }
+  return runCrawl();
 }
