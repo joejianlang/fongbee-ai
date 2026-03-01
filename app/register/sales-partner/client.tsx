@@ -33,7 +33,7 @@ function SalesPartnerRegisterContent() {
             请使用邀请者发送的完整邀请链接来注册
           </p>
           <button
-            onClick={() => router.push('/auth/signin')}
+            onClick={() => router.push('/auth/login/service-provider')}
             className="w-full px-4 py-3 bg-[#0d9488] text-white rounded-lg hover:bg-[#0a7c71] transition-colors font-semibold"
           >
             返回登录
@@ -119,7 +119,7 @@ function SalesPartnerRegisterContent() {
 
       // 3秒后重定向到登录页
       setTimeout(() => {
-        router.push('/auth/signin');
+        router.push('/auth/login/service-provider');
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请重试');
@@ -285,7 +285,7 @@ function SalesPartnerRegisterContent() {
           {/* Login Link */}
           <p className="text-sm text-gray-600 text-center mt-6">
             已有账户？{' '}
-            <a href="/auth/signin" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
+            <a href="/auth/login/service-provider" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
               直接登录
             </a>
           </p>

@@ -408,7 +408,7 @@ export default function ServiceProviderRegisterPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        window.location.href = '/auth/signin';
+        window.location.href = '/auth/login/service-provider';
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请重试');
@@ -536,7 +536,7 @@ export default function ServiceProviderRegisterPage() {
 
             <p className="text-sm text-gray-600 text-center mt-4">
               已有账户？{' '}
-              <Link href="/auth/signin" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
+              <Link href="/auth/login/service-provider" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
                 直接登录
               </Link>
             </p>
@@ -788,7 +788,7 @@ export default function ServiceProviderRegisterPage() {
 
             <p className="text-sm text-gray-600 text-center mt-4">
               已有账户？{' '}
-              <Link href="/auth/signin" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
+              <Link href="/auth/login/service-provider" className="text-[#0d9488] hover:text-[#0a7c71] font-semibold">
                 直接登录
               </Link>
             </p>

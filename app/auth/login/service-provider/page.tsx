@@ -1,306 +1,242 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Eye, EyeOff, ArrowLeft, Phone, Lock } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, AlertCircle, Briefcase } from 'lucide-react';
+import { signIn } from 'next-auth/react';
 
 export default function ServiceProviderLoginPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [verificationSent, setVerificationSent] = useState(false);
+  const [email,      setEmail]      = useState('');
+  const [password,   setPassword]   = useState('');
+  const [showPwd,    setShowPwd]    = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState('');
+
+  /* 2FA state (for ADMIN logins) */
+  const [step,       setStep]       = useState<'input' | '2fa'>('input');
+  const [sessionId,  setSessionId]  = useState('');
+  const [twoFACode,  setTwoFACode]  = useState('');
 
   const inputClass =
-    'w-full px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#0d9488]/40 focus:border-[#0d9488] transition-all';
+    'w-full px-4 py-3.5 text-sm border border-gray-200 rounded-xl bg-slate-50 text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 focus:bg-white transition-all';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      if (isLogin) {
-        // Login logic
-        if (!phone || !password) {
-          setError('请输入手机号和密码');
-          return;
-        }
-        // API call would go here
-        console.log('Logging in with:', { phone, password });
-      } else {
-        // Register logic
-        if (!phone || !password || !confirmPassword || !name) {
-          setError('请填写所有必填项');
-          return;
-        }
-        if (password !== confirmPassword) {
-          setError('两次输入的密码不一致');
-          return;
-        }
-        if (password.length < 8) {
-          setError('密码长度至少8个字符');
-          return;
-        }
-        // API call would go here
-        console.log('Registering with:', { phone, password, name });
+      const res = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email, identifierType: 'email', password }),
+      });
+      const data = await res.json();
+      if (!data.success) { setError(data.error || '邮箱或密码错误'); return; }
+
+      if (data.requiresTwoFA) {
+        setSessionId(data.sessionId);
+        setStep('2fa');
+        return;
       }
 
-      // Simulate API response
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '操作失败，请重试');
+      localStorage.setItem('auth_token', data.token);
+      await signIn('token', { token: data.token, redirect: false });
+      window.location.href = data.redirectUrl || '/';
+    } catch {
+      setError('登录失败，请重试');
+    } finally {
       setLoading(false);
     }
-  };
+  }, [email, password]);
+
+  const handleTwoFA = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, code: twoFACode }),
+      });
+      const data = await res.json();
+      if (!data.success) { setError(data.error || '验证失败'); return; }
+
+      localStorage.setItem('auth_token', data.token);
+      await signIn('token', { token: data.token, redirect: false });
+      window.location.href = data.redirectUrl || '/admin';
+    } catch {
+      setError('验证失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId, twoFACode]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <Link
-          href="/auth"
-          className="flex items-center gap-1.5 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
-        >
-          <ArrowLeft size={18} />
-          返回
-        </Link>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-teal-800 flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-sm">
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4 shadow-lg">
-              <Briefcase size={32} className="text-white" />
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-2xl px-8 py-9">
+
+          {/* Icon + Title */}
+          <div className="flex items-center gap-3 mb-7">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-slate-600 flex items-center justify-center shadow">
+              <Briefcase size={20} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800">服务商</h1>
-            <p className="text-gray-600 text-sm mt-1">与优服佳合作，拓展您的客户</p>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 leading-none">
+                {step === 'input' ? '商家登录.' : '安全验证'}
+              </h1>
+              {step === 'input' && (
+                <p className="text-xs text-gray-400 mt-0.5">服务商 · 销售合伙人 · 管理员</p>
+              )}
+            </div>
           </div>
 
-          {/* Tab Switch */}
-          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-            <button
-              onClick={() => {
-                setIsLogin(true);
-                setError('');
-              }}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                isLogin
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              登录
-            </button>
-            <button
-              onClick={() => {
-                setIsLogin(false);
-                setError('');
-              }}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                !isLogin
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              注册
-            </button>
-          </div>
-
-          {/* Error Alert */}
+          {/* Error */}
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-xl flex gap-2">
+              <AlertCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-red-600 text-xs leading-relaxed">{error}</p>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name (Register Only) */}
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  您的名字 *
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="输入您的真实名字"
-                  className={inputClass}
-                  required
-                />
-              </div>
-            )}
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                手机号 *
-              </label>
-              <div className="relative">
-                <Phone size={18} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="输入手机号"
-                  className={inputClass + ' pl-10'}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                密码 *
-              </label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={isLogin ? '输入密码' : '至少8个字符'}
-                  className={inputClass + ' pl-10 pr-10'}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm Password (Register Only) */}
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  确认密码 *
-                </label>
-                <div className="relative">
-                  <Lock size={18} className="absolute left-3 top-3 text-gray-400" />
+          {step === 'input' ? (
+            <>
+              <form onSubmit={handleLogin} className="space-y-4">
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱</label>
                   <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="再次输入密码"
-                    className={inputClass + ' pl-10 pr-10'}
-                    required={!isLogin}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className={inputClass}
+                    required
+                    autoComplete="email"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">密码</label>
+                  <div className="relative">
+                    <input
+                      type={showPwd ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className={inputClass + ' pr-12'}
+                      required
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPwd(!showPwd)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Login button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 bg-gradient-to-r from-teal-600 to-slate-700 text-white font-semibold rounded-xl hover:from-teal-700 hover:to-slate-800 active:opacity-90 transition-all disabled:opacity-60 mt-2 shadow-md"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      处理中...
+                    </span>
+                  ) : '立即登录'}
+                </button>
+              </form>
+
+              {/* Terms */}
+              <p className="text-xs text-gray-400 text-center mt-4 leading-relaxed">
+                登录即代表您同意{' '}
+                <Link href="/terms" className="text-teal-600 hover:underline">《服务条款》</Link>
+                {' '}及{' '}
+                <Link href="/privacy" className="text-teal-600 hover:underline">《隐私政策》</Link>
+              </p>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">注册入口</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              {/* Register links */}
+              <div className="space-y-2.5">
+                <Link
+                  href="/register/service-provider"
+                  className="w-full flex items-center justify-center gap-2 py-3 border border-teal-200 rounded-xl text-sm font-medium text-teal-700 hover:bg-teal-50 transition-colors"
+                >
+                  <Briefcase size={16} />
+                  服务商注册
+                </Link>
+                <div className="w-full flex items-center justify-center gap-2 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-400 cursor-not-allowed select-none">
+                  🔒 销售合伙人注册（需要邀请链接）
                 </div>
               </div>
-            )}
 
-            {/* Forgot Password (Login Only) */}
-            {isLogin && (
-              <div className="text-right">
+              {/* Switch to consumer login */}
+              <p className="text-xs text-gray-400 text-center mt-5">
+                普通用户？{' '}
+                <Link href="/auth/login" className="text-teal-600 font-medium hover:underline">
+                  切换到消费者登录
+                </Link>
+              </p>
+            </>
+          ) : (
+            /* 2FA Step */
+            <>
+              <p className="text-sm text-gray-500 mb-6">请输入发送到您邮箱的 6 位验证码</p>
+
+              <form onSubmit={handleTwoFA} className="space-y-4">
+                <input
+                  type="text"
+                  value={twoFACode}
+                  onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className={inputClass + ' text-center text-2xl tracking-widest font-bold'}
+                  maxLength={6}
+                  required
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 bg-gradient-to-r from-teal-600 to-slate-700 text-white font-semibold rounded-xl hover:from-teal-700 hover:to-slate-800 transition-all disabled:opacity-60 shadow-md"
+                >
+                  {loading ? '验证中...' : '验证并登录'}
+                </button>
                 <button
                   type="button"
-                  className="text-sm text-[#0d9488] hover:text-[#0a7c71] font-medium transition-colors"
+                  onClick={() => { setStep('input'); setTwoFACode(''); setError(''); }}
+                  className="w-full py-2 text-gray-500 text-sm hover:bg-gray-50 rounded-lg transition-colors"
                 >
-                  忘记密码？
+                  返回
                 </button>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  处理中...
-                </span>
-              ) : isLogin ? (
-                '登录'
-              ) : (
-                '注册并登录'
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-gray-300" />
-            <span className="text-xs text-gray-500">或</span>
-            <div className="flex-1 h-px bg-gray-300" />
-          </div>
-
-          {/* Third Party Login */}
-          <div className="space-y-3">
-            <button className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-              <span className="text-lg">🍎</span>
-              Apple 登录
-            </button>
-            <button className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-              <span className="text-lg">📧</span>
-              邮箱登录
-            </button>
-          </div>
-
-          {/* Footer */}
-          <p className="text-xs text-gray-600 text-center mt-6">
-            {isLogin ? '没有账户？' : '已有账户？'}{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-              }}
-              className="text-[#0d9488] hover:text-[#0a7c71] font-semibold transition-colors"
-            >
-              {isLogin ? '注册' : '登录'}
-            </button>
-          </p>
-
-          <p className="text-xs text-gray-500 text-center mt-4 px-2">
-            继续表示您同意{' '}
-            <Link href="/terms" className="text-[#0d9488] hover:underline">
-              服务条款
-            </Link>
-            {' '}和{' '}
-            <Link href="/privacy" className="text-[#0d9488] hover:underline">
-              隐私政策
-            </Link>
-          </p>
+              </form>
+            </>
+          )}
         </div>
-      </div>
 
-      {/* Footer Info */}
-      <div className="px-4 py-4 bg-white border-t border-gray-200 text-center">
-        <p className="text-xs text-gray-600">
-          需要帮助？
-          <Link href="/contact" className="text-[#0d9488] hover:underline ml-1">
-            联系我们
+        {/* Back to home */}
+        <div className="text-center mt-5">
+          <Link href="/" className="flex items-center justify-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors">
+            <ArrowLeft size={15} />
+            返回首页
           </Link>
-        </p>
+        </div>
       </div>
     </div>
   );
 }
-
-import { Briefcase } from 'lucide-react';
