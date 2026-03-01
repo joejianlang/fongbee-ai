@@ -96,10 +96,13 @@ export default function CustomRequestPage() {
 
   /* ── Fetch all categories ─────────────────────────────────────── */
   useEffect(() => {
-    fetch('/api/admin/service-categories')
+    fetch('/api/admin/service-categories?limit=100')
       .then((r) => r.json())
       .then((res) => {
-        if (res.success) setCategories(res.data.filter((c: ServiceCategoryDef) => c.isActive));
+        if (res.success) {
+          const items: ServiceCategoryDef[] = res.data.items ?? res.data ?? [];
+          setCategories(items.filter((c) => c.isActive));
+        }
       })
       .finally(() => setCatLoading(false));
   }, []);
