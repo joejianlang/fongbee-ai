@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { crawlRssSource } from '@/lib/crawler/rss';
 import { crawlYouTubeSource } from '@/lib/crawler/youtube';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/auth-options';
+import { authOptions } from '../../auth/[...nextauth]/auth-options';
 
 const BATCH_LIMIT = 20;
 
