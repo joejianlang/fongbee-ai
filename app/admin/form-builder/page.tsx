@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Database, Loader2 } from 'lucide-react';
 import { ServiceCategoryDef, FormFieldDef, FormFieldType, FormTemplateType, FORM_TEMPLATE_LABELS } from '@/lib/types';
 import Pagination from '@/components/Pagination';
 
@@ -43,6 +43,9 @@ export default function FormBuilderPage() {
   const [fieldPage, setFieldPage] = useState(1);
   const [fieldTotalPages, setFieldTotalPages] = useState(1);
   const [fieldTotal, setFieldTotal] = useState(0);
+  // Init services
+  const [initSvc, setInitSvc] = useState(false);
+  const [initSvcMsg, setInitSvcMsg] = useState<string | null>(null);
 
   // New field form state
   const [newField, setNewField] = useState({
@@ -56,14 +59,35 @@ export default function FormBuilderPage() {
   });
 
   /* ── Fetch categories ───────────────────────────────────────── */
-  useEffect(() => {
-    // Load all categories (small dataset, no pagination needed for sidebar)
+  const loadCategories = useCallback(() => {
     fetch('/api/admin/service-categories?limit=100')
       .then((r) => r.json())
       .then((res) => {
         if (res.success) setCategories(res.data.items ?? res.data);
       });
   }, []);
+
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  /* ── Init default services ──────────────────────────────────── */
+  const handleInitServices = async () => {
+    setInitSvc(true);
+    setInitSvcMsg(null);
+    try {
+      const res  = await fetch('/api/admin/setup-services', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setInitSvcMsg(`✅ ${data.message}`);
+        loadCategories();
+      } else {
+        setInitSvcMsg(`❌ ${data.error ?? '初始化失败'}`);
+      }
+    } catch {
+      setInitSvcMsg('❌ 网络错误，请重试');
+    } finally {
+      setInitSvc(false);
+    }
+  };
 
   /* ── Fetch fields when category, template, or page changes ─────── */
   const loadFields = useCallback((catId: string, templateType: FormTemplateType, page = 1) => {
@@ -175,6 +199,32 @@ export default function FormBuilderPage() {
   const selectedCat = categories.find((c) => c.id === selectedId);
 
   return (
+    <div className="space-y-4">
+      {/* ── Toolbar ────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold text-text-primary">表单构建器</h1>
+        <button
+          onClick={handleInitServices}
+          disabled={initSvc}
+          className="flex items-center gap-2 px-4 py-2 border border-[#0d9488] text-[#0d9488] rounded-lg text-sm hover:bg-[#0d9488]/10 transition-colors disabled:opacity-60"
+        >
+          {initSvc ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
+          初始化默认服务
+        </button>
+      </div>
+
+      {/* ── Init result banner ─────────────────────────────────── */}
+      {initSvcMsg && (
+        <div className={`px-4 py-3 rounded-xl text-sm flex items-start gap-2 ${
+          initSvcMsg.startsWith('✅')
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-600 border border-red-200'
+        }`}>
+          <span className="flex-1">{initSvcMsg}</span>
+          <button onClick={() => setInitSvcMsg(null)} className="text-xs opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
+
     <div className="flex gap-6">
       {/* ── Sidebar: Categories ────────────────────────────────── */}
       <aside className="w-48 flex-shrink-0 space-y-4">
@@ -402,6 +452,7 @@ export default function FormBuilderPage() {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }
