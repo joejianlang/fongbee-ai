@@ -2,7 +2,7 @@ name: Cron - Crawl Feeds
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # 每 6 小时
+    - cron: '0 * * * *'      # 每小时
   workflow_dispatch:
 
 jobs:
