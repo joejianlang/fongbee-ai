@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Rss, Youtube, Plus, Trash2, RefreshCw, CheckCircle2,
-  XCircle, Clock, AlertCircle, Loader2, Play,
+  XCircle, Clock, AlertCircle, Loader2, Play, Database,
 } from 'lucide-react';
 
 type FeedType = 'RSS' | 'YOUTUBE';
@@ -64,8 +64,10 @@ export default function FeedSourcesPage() {
   const [newType, setNewType]   = useState<FeedType>('RSS');
   const [newUrl, setNewUrl]     = useState('');
   const [newCron, setNewCron]   = useState('0 */6 * * *');
-  const [adding, setAdding]     = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
+  const [adding, setAdding]         = useState(false);
+  const [addError, setAddError]     = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(false);
+  const [initMessage,  setInitMessage]  = useState<string | null>(null);
 
   // ── Load sources from API ────────────────────────────────────────────────
   const loadSources = useCallback(async () => {
@@ -168,6 +170,26 @@ export default function FeedSourcesPage() {
     }
   };
 
+  const handleInit = async () => {
+    if (!confirm('将插入 9 个默认 RSS 来源并修正分类过滤规则，确认继续？')) return;
+    setInitializing(true);
+    setInitMessage(null);
+    try {
+      const res  = await fetch('/api/admin/setup-feeds', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setInitMessage(`✅ ${data.message}`);
+        loadSources();
+      } else {
+        setInitMessage(`❌ ${data.error}`);
+      }
+    } catch {
+      setInitMessage('❌ 初始化失败，请重试');
+    } finally {
+      setInitializing(false);
+    }
+  };
+
   const handleAdd = async () => {
     if (!newName.trim() || !newUrl.trim()) return;
     setAdding(true);
@@ -208,7 +230,15 @@ export default function FeedSourcesPage() {
           <h1 className="text-2xl font-bold text-text-primary">订阅源管理</h1>
           <p className="text-text-secondary text-sm mt-1">管理 RSS 和 YouTube 新闻来源，配置抓取频率</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleInit}
+            disabled={initializing}
+            className="flex items-center gap-2 px-4 py-2 border border-[#0d9488] text-[#0d9488] rounded-lg text-sm hover:bg-[#0d9488]/10 transition-colors disabled:opacity-60"
+          >
+            {initializing ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
+            初始化默认来源
+          </button>
           <button
             onClick={handleCrawlAll}
             disabled={globalCrawling}
@@ -226,6 +256,18 @@ export default function FeedSourcesPage() {
           </button>
         </div>
       </div>
+
+      {/* Init result banner */}
+      {initMessage && (
+        <div className={`p-3 rounded-xl text-sm flex items-start gap-2 ${
+          initMessage.startsWith('✅')
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-600 border border-red-200'
+        }`}>
+          <span className="flex-1">{initMessage}</span>
+          <button onClick={() => setInitMessage(null)} className="text-xs opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
