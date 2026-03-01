@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, FeedType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -244,6 +244,57 @@ async function main() {
   );
 
   console.log(`✅ Created ${newsCategories.length} news categories`);
+
+  // 2.6. Update news category filterTypes
+  const categoryFilterDefs = [
+    { name: '全部',       filterType: 'ALL' },
+    { name: '关注',       filterType: 'USER_INTERESTS' },
+    { name: '传统新闻媒体', filterType: 'RSS_SOURCE' },
+    { name: 'YouTube网红', filterType: 'YOUTUBE_SOURCE' },
+    { name: '网络专业媒体', filterType: 'RSS_SOURCE' },
+    { name: '本地',       filterType: 'GEO_BASED' },
+    { name: '热点',       filterType: 'KEYWORDS', keywords: ['breaking','world','hot','热点','突发','全球'] },
+    { name: '政治',       filterType: 'KEYWORDS', keywords: ['politics','government','election','policy','政治','选举','政府'] },
+    { name: '科技',       filterType: 'KEYWORDS', keywords: ['tech','technology','AI','software','startup','Apple','Google','科技','人工智能'] },
+    { name: '财经',       filterType: 'KEYWORDS', keywords: ['finance','market','stock','economy','business','invest','财经','股市','经济'] },
+    { name: '文化娱乐',   filterType: 'KEYWORDS', keywords: ['entertainment','movie','music','celebrity','culture','娱乐','电影','音乐'] },
+    { name: '体育',       filterType: 'KEYWORDS', keywords: ['sports','NBA','NFL','soccer','hockey','Olympics','体育','足球','篮球'] },
+  ];
+  await Promise.all(
+    categoryFilterDefs.map((def) =>
+      prisma.newsCategory.updateMany({
+        where: { name: def.name },
+        data: {
+          filterType: def.filterType,
+          ...(def.keywords ? { keywords: JSON.stringify(def.keywords) } : {}),
+        },
+      })
+    )
+  );
+  console.log('✅ Updated news category filter types');
+
+  // 2.7. Seed feed sources
+  const feedSourceDefs = [
+    { id: 'national-post', name: 'National Post',    type: FeedType.RSS,     url: 'https://nationalpost.com/feed',                    category: '传统新闻媒体' },
+    { id: 'cnn',           name: 'CNN World',        type: FeedType.RSS,     url: 'https://rss.cnn.com/rss/edition.rss',              category: '传统新闻媒体' },
+    { id: 'cbc',           name: 'CBC News',         type: FeedType.RSS,     url: 'https://www.cbc.ca/cmlink/rss-topstories',         category: '传统新闻媒体' },
+    { id: 'verge',         name: 'The Verge',        type: FeedType.RSS,     url: 'https://www.theverge.com/rss/index.xml',           category: '网络专业媒体' },
+    { id: 'techcrunch',    name: 'TechCrunch',       type: FeedType.RSS,     url: 'https://techcrunch.com/feed/',                     category: '网络专业媒体' },
+    { id: 'axios',         name: 'Axios',            type: FeedType.RSS,     url: 'https://api.axios.com/feed/',                      category: '网络专业媒体' },
+    { id: 'bloomberg',     name: 'Reuters Business', type: FeedType.RSS,     url: 'https://feeds.reuters.com/reuters/businessNews',   category: '财经' },
+    { id: 'variety',       name: 'Variety',          type: FeedType.RSS,     url: 'https://variety.com/feed/',                        category: '文化娱乐' },
+    { id: 'espn',          name: 'ESPN',             type: FeedType.RSS,     url: 'https://www.espn.com/espn/rss/news',               category: '体育' },
+  ];
+  await Promise.all(
+    feedSourceDefs.map((src) =>
+      prisma.feedSource.upsert({
+        where: { id: src.id },
+        update: { name: src.name, url: src.url, category: src.category, isActive: true },
+        create: { ...src, isActive: true, errorCount: 0, crawlCron: '0 * * * *', language: 'en' },
+      })
+    )
+  );
+  console.log(`✅ Seeded ${feedSourceDefs.length} feed sources`);
 
   // 3. Create payment policies
   const policyDefs = [
