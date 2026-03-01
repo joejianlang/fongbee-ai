@@ -138,14 +138,12 @@ export default function FeedSourcesPage() {
   const handleCrawlOne = async (id: string) => {
     setCrawling(id);
     try {
-      // Trigger crawl via cron endpoint
+      // Trigger crawl via cron endpoint (admin session cookie is sent automatically)
       await fetch('/api/cron/crawl-feeds', {
-        method:  'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-cron-key': process.env.NEXT_PUBLIC_CRON_API_KEY ?? '',
-        },
-        body: JSON.stringify({ sourceId: id }),
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ sourceId: id }),
       });
       // Refresh source data to show updated lastCrawledAt
       await loadSources();
@@ -157,12 +155,11 @@ export default function FeedSourcesPage() {
   const handleCrawlAll = async () => {
     setGlobalCrawling(true);
     try {
+      // Admin session cookie is sent automatically via credentials: 'include'
       await fetch('/api/cron/crawl-feeds', {
-        method:  'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-cron-key': process.env.NEXT_PUBLIC_CRON_API_KEY ?? '',
-        },
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
       });
       await loadSources();
     } finally {

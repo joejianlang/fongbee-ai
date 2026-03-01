@@ -12,21 +12,29 @@ import type { ApiResponse } from '@/lib/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { crawlRssSource } from '@/lib/crawler/rss';
 import { crawlYouTubeSource } from '@/lib/crawler/youtube';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/auth-options';
 
 const BATCH_LIMIT = 20;
 
 /**
  * Verify that the request comes from an authorised caller.
- * Supports two methods:
- *  1. x-cron-key header  (external cron / local testing)
+ * Supports three methods:
+ *  1. x-cron-key header          (external cron / GitHub Actions)
  *  2. Authorization: Bearer CRON_SECRET  (Vercel Cron)
+ *  3. Admin session cookie        (admin UI buttons)
  */
-function isAuthorized(req: NextRequest): boolean {
+async function isAuthorized(req: NextRequest): Promise<boolean> {
   const cronKey = req.headers.get('x-cron-key');
   if (cronKey && cronKey === process.env.CRON_API_KEY) return true;
 
   const auth = req.headers.get('authorization');
   if (auth && process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`) return true;
+
+  // Allow logged-in admins to trigger crawls from the admin UI
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as { role?: string })?.role;
+  if (role === 'ADMIN') return true;
 
   return false;
 }
@@ -186,15 +194,15 @@ async function runCrawl(): Promise<NextResponse<ApiResponse>> {
 
 /** GET — Vercel Cron calls this every hour (Authorization: Bearer CRON_SECRET) */
 export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse>> {
-  if (!isAuthorized(req)) {
+  if (!await isAuthorized(req)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
   return runCrawl();
 }
 
-/** POST — External cron services / manual trigger (x-cron-key: CRON_API_KEY) */
+/** POST — External cron / admin UI / manual trigger */
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>> {
-  if (!isAuthorized(req)) {
+  if (!await isAuthorized(req)) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
   return runCrawl();
