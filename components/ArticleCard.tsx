@@ -241,6 +241,7 @@ function ExpandedPanel({
 // ─── 主组件 ────────────────────────────────────────────────────────────────
 export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   const isYoutube = article.sourceType === 'YOUTUBE';
   const videoId = isYoutube ? extractVideoId(article.sourceUrl) : null;
   const hasSummary = !!(article.summaryZh || article.summary);
@@ -253,7 +254,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   /* ── Full-width layout ── */
   if (layout === 'full') {
     return (
-      <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden">
+      <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => router.push(`/news/article/${article.id}`)}>
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
           <span className="max-w-[60%] truncate"><SourceLabel article={article} /></span>
           <span className="text-text-muted">·</span>
@@ -291,7 +292,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
 
   /* ── Compact layout ── */
   return (
-    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden">
+    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => router.push(`/news/article/${article.id}`)}>
       <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
         {/* 缩略图 / 视频 */}
