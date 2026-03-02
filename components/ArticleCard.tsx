@@ -126,12 +126,14 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
 function ExpandedPanel({
   article,
   onCollapse,
+  showMedia = true,
 }: {
   article: ArticleCardProps['article'];
   onCollapse: () => void;
+  showMedia?: boolean;
 }) {
   const [tab, setTab] = useState<'summary' | 'insight'>('summary');
-  const videoId = article.sourceType === 'YOUTUBE' ? extractVideoId(article.sourceUrl) : null;
+  const videoId = showMedia && article.sourceType === 'YOUTUBE' ? extractVideoId(article.sourceUrl) : null;
 
   const share = () => {
     if (navigator.share) {
@@ -143,34 +145,36 @@ function ExpandedPanel({
 
   return (
     <div className="border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
-      {/* 视频 / 图片 */}
-      {videoId ? (
-        <div className="relative w-full aspect-video bg-black">
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
-            title={article.titleZh || article.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="w-full h-full"
-          />
-          {article.sourceUrl && (
-            <a
-              href={article.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2.5 py-1.5 rounded-full transition-colors"
-            >
-              <ExternalLink size={11} />
-              在 YouTube 打开
-            </a>
-          )}
-        </div>
-      ) : article.imageUrl ? (
-        <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-800">
-          <Image src={article.imageUrl} alt={article.titleZh || article.title} fill className="object-cover" unoptimized />
-        </div>
-      ) : null}
+      {/* 视频 / 图片 — sticky at top when expanded */}
+      {showMedia && (
+        videoId ? (
+          <div className="sticky top-[104px] z-20 w-full aspect-video bg-black">
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
+              title={article.titleZh || article.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full"
+            />
+            {article.sourceUrl && (
+              <a
+                href={article.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2.5 py-1.5 rounded-full transition-colors"
+              >
+                <ExternalLink size={11} />
+                在 YouTube 打开
+              </a>
+            )}
+          </div>
+        ) : article.imageUrl ? (
+          <div className="sticky top-[104px] z-20 w-full aspect-video bg-gray-100 dark:bg-gray-800">
+            <Image src={article.imageUrl} alt={article.titleZh || article.title} fill className="object-cover" unoptimized />
+          </div>
+        ) : null
+      )}
 
       {/* 来源 + 关注按钮 */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -275,7 +279,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   /* ── Full-width layout ── */
   if (layout === 'full') {
     return (
-      <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+      <article className={`bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => setExpanded((v) => !v)}>
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
           <span className="max-w-[60%] truncate"><SourceLabel article={article} /></span>
           <span className="text-text-muted">·</span>
@@ -306,14 +310,14 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
           )}
         </div>
 
-        {expanded && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} />}
+        {expanded && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} showMedia={false} />}
       </article>
     );
   }
 
   /* ── Compact layout ── */
   return (
-    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+    <article className={`bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => setExpanded((v) => !v)}>
       <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
         {/* 缩略图 / 视频 */}
