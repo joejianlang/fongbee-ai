@@ -46,14 +46,75 @@ interface CrawlResult {
 }
 
 /**
+ * Extract channelId from YouTube handle using the YouTube API.
+ * Supports format: @handle (e.g., @CBCNews)
+ */
+async function extractChannelIdFromHandle(
+  handle: string,
+  apiKey: string
+): Promise<string | null> {
+  try {
+    const response = await axios.get(
+      `${YOUTUBE_API_BASE}/channels`,
+      {
+        params: {
+          part: 'id',
+          forUsername: handle,
+          key: apiKey,
+        },
+        timeout: 10000,
+      }
+    );
+
+    const channels = response.data.items;
+    if (!channels || channels.length === 0) {
+      // Try with search API if forUsername doesn't work
+      const searchResponse = await axios.get(
+        `${YOUTUBE_API_BASE}/search`,
+        {
+          params: {
+            part: 'snippet',
+            q: handle,
+            type: 'channel',
+            maxResults: 1,
+            key: apiKey,
+          },
+          timeout: 10000,
+        }
+      );
+
+      const searchItems = searchResponse.data.items;
+      if (searchItems && searchItems.length > 0) {
+        return searchItems[0].snippet?.channelId || null;
+      }
+      return null;
+    }
+
+    return channels[0].id;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Extract channelId from the FeedSource URL.
  * Supports formats:
  * - https://www.youtube.com/channel/UCxxxxxxxx
+ * - https://www.youtube.com/@handle
+ * - @handle
  * - UCxxxxxxxx (direct channel ID)
  */
-function extractChannelId(url: string): string | null {
+async function extractChannelId(url: string, apiKey: string): Promise<string | null> {
+  // Try old format: youtube.com/channel/UCxxxxxxxx
   const channelMatch = url.match(/youtube\.com\/channel\/([A-Za-z0-9_-]+)/);
   if (channelMatch?.[1]) return channelMatch[1];
+
+  // Try @handle format: youtube.com/@handle or just @handle
+  const handleMatch = url.match(/(?:youtube\.com\/)?\@([A-Za-z0-9._-]+)/);
+  if (handleMatch?.[1]) {
+    const handle = handleMatch[1];
+    return await extractChannelIdFromHandle(handle, apiKey);
+  }
 
   // Direct channel ID format
   if (/^UC[A-Za-z0-9_-]{22}$/.test(url.trim())) return url.trim();
@@ -70,7 +131,7 @@ export async function crawlYouTubeSource(source: FeedSource): Promise<CrawlResul
   const errors: string[] = [];
   let newCount = 0;
 
-  const channelId = extractChannelId(source.url);
+  const channelId = await extractChannelId(source.url, apiKey);
   if (!channelId) {
     throw new Error(`Cannot extract channelId from URL: ${source.url}`);
   }
