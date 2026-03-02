@@ -11,7 +11,7 @@ interface DynamicFormRendererProps {
 }
 
 const inputBase =
-  'w-full px-3 py-2.5 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40 transition-all';
+  'w-full px-4 py-3 text-base border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40 transition-all';
 
 export default function DynamicFormRenderer({
   fields,
@@ -30,9 +30,9 @@ export default function DynamicFormRenderer({
       {fields.map((field) => {
         const value = values[field.fieldKey];
         const label = (
-          <label className="block text-xs font-semibold text-text-muted mb-1.5">
+          <label className="block text-sm font-semibold text-text-secondary mb-2">
             {field.label}
-            {field.required && <span className="text-red-400 ml-0.5">*</span>}
+            {field.required && <span className="text-red-400 ml-1">*</span>}
           </label>
         );
 
@@ -132,9 +132,9 @@ export default function DynamicFormRenderer({
                         disabled={disabled}
                         checked={selected.includes(opt)}
                         onChange={() => toggle(opt)}
-                        className="w-4 h-4 rounded border-border-primary text-[#0d9488] accent-[#0d9488]"
+                        className="w-5 h-5 rounded border-border-primary text-[#0d9488] accent-[#0d9488]"
                       />
-                      <span className="text-sm text-text-primary">{opt}</span>
+                      <span className="text-base text-text-primary">{opt}</span>
                     </label>
                   ))}
                 </div>
@@ -155,11 +155,10 @@ export default function DynamicFormRenderer({
                       type="button"
                       disabled={disabled}
                       onClick={() => onChange(field.fieldKey, value === opt ? '' : opt)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                        value === opt
+                      className={`px-5 py-2 rounded-full text-base font-medium border transition-colors ${value === opt
                           ? 'bg-[#0d9488] text-white border-[#0d9488]'
                           : 'border-border-primary text-text-secondary hover:border-[#0d9488] hover:text-[#0d9488]'
-                      }`}
+                        }`}
                     >
                       {opt}
                     </button>
@@ -189,11 +188,10 @@ export default function DynamicFormRenderer({
                       type="button"
                       disabled={disabled}
                       onClick={() => toggle(opt)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                        selected.includes(opt)
+                      className={`px-5 py-2 rounded-full text-base font-medium border transition-colors ${selected.includes(opt)
                           ? 'bg-[#0d9488] text-white border-[#0d9488]'
                           : 'border-border-primary text-text-secondary hover:border-[#0d9488] hover:text-[#0d9488]'
-                      }`}
+                        }`}
                     >
                       {opt}
                     </button>

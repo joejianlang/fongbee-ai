@@ -63,3 +63,5 @@ temp
 
 # Claude Code session data
 .claude/
+.vercel
+.env*.local

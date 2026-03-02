@@ -4,10 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const updateSchema = z.object({
+  fieldType: z.string().optional(),
+  fieldKey: z.string().optional(),
   required: z.boolean().optional(),
   label: z.string().optional(),
   placeholder: z.string().optional(),
   displayOrder: z.number().optional(),
+  options: z.array(z.string()).optional(),
 });
 
 function serializeField(f: any): FormFieldDef {
@@ -38,14 +41,20 @@ export async function PATCH(
     const body = await req.json();
     const updates = updateSchema.parse(body);
 
+    const dataToUpdate: any = { ...updates };
+    if (updates.options !== undefined) {
+      dataToUpdate.optionsJson = JSON.stringify(updates.options);
+      delete dataToUpdate.options;
+    }
+
     const field = await prisma.formField.update({
       where: { id: fieldId },
-      data: updates,
+      data: dataToUpdate,
     });
 
     await prisma.adminLog.create({
       data: {
-        
+
         action: 'UPDATE',
         resourceType: 'FormField',
         resourceId: fieldId,
@@ -82,7 +91,7 @@ export async function DELETE(
 
     await prisma.adminLog.create({
       data: {
-        
+
         action: 'DELETE',
         resourceType: 'FormField',
         resourceId: fieldId,

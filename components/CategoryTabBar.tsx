@@ -95,26 +95,25 @@ export default function CategoryTabBar({ active, onChange }: CategoryTabBarProps
         >
           {loading
             ? Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-20 h-8 rounded-full bg-gray-100 dark:bg-white/10 animate-pulse" />
-              ))
+              <div key={i} className="flex-shrink-0 w-24 h-10 rounded-lg bg-gray-100 dark:bg-white/10 animate-pulse" />
+            ))
             : displayCategories.map((cat) => {
-                const isActive = active === cat.name;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategoryClick(cat.name)}
-                    aria-pressed={isActive}
-                    aria-label={`分类: ${cat.name}`}
-                    className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-150 ${
-                      isActive
-                        ? 'bg-[#0d9488] text-white'
-                        : 'bg-gray-100 dark:bg-white/15 text-text-primary dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/25'
+              const isActive = active === cat.name;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryClick(cat.name)}
+                  aria-pressed={isActive}
+                  aria-label={`分类: ${cat.name}`}
+                  className={`flex-shrink-0 px-5 py-2 rounded-lg text-base font-medium transition-all duration-150 ${isActive
+                      ? 'bg-[#0d9488] text-white'
+                      : 'bg-gray-100 dark:bg-white/15 text-text-primary dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/25'
                     }`}
-                  >
-                    {cat.name}
-                  </button>
-                );
-              })}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
         </div>
 
         {/* Right arrow */}
