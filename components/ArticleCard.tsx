@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import type { MockArticle } from '@/lib/mockData';
 
 interface ArticleCardProps {
-  article: MockArticle & { sourceId?: string; summaryZh?: string; sourceUrl?: string };
+  article: MockArticle & { sourceId?: string; summaryZh?: string; sourceUrl?: string; titleZh?: string };
   layout?: 'compact' | 'full';
 }
 
@@ -75,6 +76,7 @@ interface VideoBlockProps {
 function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, roundedCls = 'rounded-lg' }: VideoBlockProps) {
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -121,42 +123,78 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
     return () => observer.disconnect();
   }, [startAutoplay, stop]);
 
-  // 点击取消静音（不重新加载视频）
-  const handleUnmute = (e: React.MouseEvent) => {
+  // 点击视频 → 打开 Modal（有声音）
+  const handleVideoClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    postMute(iframeRef.current, false);
-    setMuted(false);
-    notifyPlaying(articleId); // 确保其他视频停止
+    setModalOpen(true);
+    notifyPlaying(articleId + '-modal'); // 停止其他卡片内嵌视频
   };
 
+  // 关闭 Modal 时恢复 ESC 监听
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModalOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalOpen]);
+
   const iframeSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&enablejsapi=1&playsinline=1`;
+  const modalSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1`;
 
   return (
     <div ref={containerRef} className={`${sizeCls} ${roundedCls} overflow-hidden bg-black relative flex-shrink-0`}>
+      {/* ── 全屏 Modal（fixed，不受 overflow 裁切）── */}
+      {modalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute -top-9 right-0 text-white/80 hover:text-white text-sm flex items-center gap-1"
+            >
+              ✕ 关闭
+            </button>
+            <div className="aspect-video w-full">
+              <iframe
+                src={modalSrc}
+                title={title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full rounded-lg"
+              />
+            </div>
+            <p className="mt-2 text-white/80 text-sm line-clamp-2">{title}</p>
+          </div>
+        </div>
+      )}
+
       {playing ? (
-        <>
+        <div className="absolute inset-0">
           <iframe
             ref={iframeRef}
             src={iframeSrc}
             title={title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            className="absolute inset-0 w-full h-full"
+            className="w-full h-full"
           />
-          {/* 静音/取消静音按钮 */}
           <button
-            onClick={handleUnmute}
-            className="absolute bottom-2 right-2 z-10 bg-black/60 rounded-full p-1.5 hover:bg-black/80 transition-colors"
-            aria-label={muted ? '点击取消静音' : '已开启声音'}
+            onClick={handleVideoClick}
+            className="absolute inset-0 w-full h-full z-10 flex items-end justify-end p-2"
+            aria-label="点击放大播放"
           >
-            {muted
-              ? <VolumeX size={14} className="text-white" />
-              : <Volume2 size={14} className="text-white" />
-            }
+            <span className="bg-black/60 rounded-full p-1.5">
+              <VolumeX size={14} className="text-white" />
+            </span>
           </button>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="absolute inset-0">
           {imageUrl ? (
             <Image
               src={imageUrl}
@@ -171,13 +209,12 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
               <span className="text-gray-400 text-xs">无图片</span>
             </div>
           )}
-          {/* 播放按钮（暗示可以手动播放） */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center shadow">
               <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-red-600 border-b-[8px] border-b-transparent ml-1" />
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -186,13 +223,18 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
 // ─── 主组件 ────────────────────────────────────────────────────────────────
 export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
   const isYoutube = article.sourceType === 'YOUTUBE';
   const videoId = isYoutube ? extractVideoId(article.sourceUrl) : null;
+  const detailHref = `/news/article/${article.id}`;
 
   /* ── Full-width layout ── */
   if (layout === 'full') {
     return (
-      <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden">
+      <article
+        className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer"
+        onClick={() => router.push(detailHref)}
+      >
         {/* meta 行 */}
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
           <span className="max-w-[60%] truncate"><SourceLabel article={article} /></span>
@@ -232,11 +274,11 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         {/* 标题 + 展开按钮 */}
         <div className="px-3 pt-2.5 pb-3">
           <h2 className="text-text-primary dark:text-white text-sm font-semibold leading-snug line-clamp-2 mb-2">
-            {article.title}
+            {article.titleZh || article.title}
           </h2>
           {(article.summaryZh || article.summary) && (
             <button
-              onClick={() => setExpanded((v) => !v)}
+              onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
               className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity"
               aria-expanded={expanded}
             >
@@ -247,7 +289,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         </div>
 
         {expanded && (article.summaryZh || article.summary) && (
-          <div className="px-3 pb-3 border-t border-border-primary">
+          <div className="px-3 pb-3 border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
             <p className="text-text-secondary dark:text-gray-300 text-sm leading-relaxed pt-2.5">
               {article.summaryZh || article.summary}
             </p>
@@ -259,7 +301,10 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
 
   /* ── Compact layout ── */
   return (
-    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden">
+    <article
+      className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer"
+      onClick={() => router.push(detailHref)}
+    >
       <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
         {/* 缩略图 / 视频 */}
@@ -301,12 +346,12 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
           </div>
 
           <h2 className="text-text-primary dark:text-white text-[15px] font-semibold leading-snug line-clamp-2 mb-2">
-            {article.title}
+            {article.titleZh || article.title}
           </h2>
 
           {(article.summaryZh || article.summary) && (
             <button
-              onClick={() => setExpanded((v) => !v)}
+              onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
               className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity self-start"
               aria-expanded={expanded}
             >
@@ -318,7 +363,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
       </div>
 
       {expanded && (article.summaryZh || article.summary) && (
-        <div className="px-3 pb-3 md:px-0 border-t border-border-primary">
+        <div className="px-3 pb-3 md:px-0 border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
           <p className="text-text-secondary dark:text-gray-300 text-sm leading-relaxed pt-2.5">
             {article.summaryZh || article.summary}
           </p>

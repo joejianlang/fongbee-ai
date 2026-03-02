@@ -33,29 +33,33 @@ const EMBEDDING_COST_PER_1K = 0.00002;
 interface SummaryResult {
   summary: string;
   summaryZh: string;
+  titleZh: string;
   costUsd: number;
 }
 
 export async function processSummary(
   articleId: string,
+  title: string,
   content: string,
   language: string
 ): Promise<SummaryResult> {
   const model = getTierModel('tier1');
-  const cacheInput = `${language}::${content.slice(0, 500)}`;
+  const cacheInput = `${language}::${title.slice(0, 100)}::${content.slice(0, 400)}`;
 
   const { result } = await withSemanticCache<SummaryResult>(
     'summary',
     cacheInput,
     async () => {
       const client = getOpenAIClient();
-      const prompt = `You are a news summarizer. Given the article content below, produce:
+      const prompt = `You are a news summarizer. Given the article title and content below, produce:
 1. A concise English summary (2-3 sentences)
 2. A concise Chinese summary (2-3 sentences)
+3. A Chinese translation of the title (accurate and natural)
 
 Return ONLY valid JSON in this exact format:
-{"summary": "...", "summaryZh": "..."}
+{"summary": "...", "summaryZh": "...", "titleZh": "..."}
 
+Article title: ${title}
 Article content:
 ${content.slice(0, 3000)}`;
 
@@ -64,23 +68,24 @@ ${content.slice(0, 3000)}`;
         model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
-        max_tokens: 400,
+        max_tokens: 500,
       });
 
       const raw = response.choices[0]?.message?.content ?? '{}';
       const outputTokens = estimateTokens(raw);
       const costUsd = estimateCost(model, inputTokens, outputTokens);
 
-      let parsed: { summary?: string; summaryZh?: string } = {};
+      let parsed: { summary?: string; summaryZh?: string; titleZh?: string } = {};
       try {
-        parsed = JSON.parse(raw) as { summary?: string; summaryZh?: string };
+        parsed = JSON.parse(raw) as { summary?: string; summaryZh?: string; titleZh?: string };
       } catch {
-        parsed = { summary: raw.slice(0, 500), summaryZh: '' };
+        parsed = { summary: raw.slice(0, 500), summaryZh: '', titleZh: '' };
       }
 
       return {
         summary: parsed.summary ?? '',
         summaryZh: parsed.summaryZh ?? '',
+        titleZh: parsed.titleZh ?? '',
         costUsd,
       };
     }
@@ -88,7 +93,11 @@ ${content.slice(0, 3000)}`;
 
   await prisma.article.update({
     where: { id: articleId },
-    data: { summary: result.summary, summaryZh: result.summaryZh },
+    data: {
+      summary: result.summary,
+      summaryZh: result.summaryZh,
+      ...(result.titleZh ? { titleZh: result.titleZh } : {}),
+    },
   });
 
   return result;
@@ -398,7 +407,7 @@ export async function processArticle(
   // Step 1: Summary
   let summaryText = article.summary ?? '';
   try {
-    const res = await processSummary(articleId, article.content, language);
+    const res = await processSummary(articleId, article.title, article.content, language);
     totalCostUsd += res.costUsd;
     summaryText = res.summary;
     steps.summary = true;

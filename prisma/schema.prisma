@@ -990,6 +990,7 @@ model Article {
   externalId       String?   @unique // RSS guid 或 YouTube videoId
   title            String
   originalTitle    String?
+  titleZh          String?   // AI 翻译标题（中文）
   content          String
   summary          String?   // AI 生成摘要（英文）
   summaryZh        String?   // AI 生成摘要（中文）
