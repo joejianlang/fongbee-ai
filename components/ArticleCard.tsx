@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, VolumeX, Share2 } from 'lucide-react';
 import type { MockArticle } from '@/lib/mockData';
 
@@ -63,8 +64,8 @@ interface VideoBlockProps {
 
 function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, roundedCls = 'rounded-lg' }: VideoBlockProps) {
   const [playing, setPlaying] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const stop = useCallback(() => setPlaying(false), []);
   const startAutoplay = useCallback(() => { setPlaying(true); notifyPlaying(articleId); }, [articleId]);
@@ -86,41 +87,24 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
     return () => observer.disconnect();
   }, [startAutoplay, stop]);
 
-  useEffect(() => {
-    if (!modalOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModalOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [modalOpen]);
-
   const iframeSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&enablejsapi=1&playsinline=1`;
-  const modalSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1`;
+  const goToDetail = (e: React.MouseEvent) => { e.stopPropagation(); router.push(`/news/article/${articleId}`); };
 
   return (
     <div ref={containerRef} className={`${sizeCls} ${roundedCls} overflow-hidden bg-black relative flex-shrink-0`}>
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-          <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setModalOpen(false)} className="absolute -top-9 right-0 text-white/80 hover:text-white text-sm flex items-center gap-1">✕ 关闭</button>
-            <div className="aspect-video w-full">
-              <iframe src={modalSrc} title={title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full rounded-lg" />
-            </div>
-          </div>
-        </div>
-      )}
       {playing ? (
         <div className="absolute inset-0">
           <iframe src={iframeSrc} title={title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full" />
           <button
-            onClick={(e) => { e.stopPropagation(); setModalOpen(true); notifyPlaying(articleId + '-modal'); }}
+            onClick={goToDetail}
             className="absolute inset-0 w-full h-full z-10 flex items-end justify-end p-2"
-            aria-label="点击放大播放"
+            aria-label="点击查看详情"
           >
             <span className="bg-black/60 rounded-full p-1.5"><VolumeX size={14} className="text-white" /></span>
           </button>
         </div>
       ) : (
-        <div className="absolute inset-0">
+        <button className="absolute inset-0 w-full h-full" onClick={goToDetail} aria-label="播放视频">
           {imageUrl ? (
             <Image src={imageUrl} alt={`${sourceName} - ${title}`} fill className="object-cover" sizes="(max-width: 768px) 128px, 400px" unoptimized />
           ) : (
@@ -128,12 +112,12 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
               <span className="text-gray-400 text-xs">无图片</span>
             </div>
           )}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center shadow">
               <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-red-600 border-b-[8px] border-b-transparent ml-1" />
             </div>
           </div>
-        </div>
+        </button>
       )}
     </div>
   );
