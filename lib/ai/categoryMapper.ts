@@ -133,12 +133,14 @@ const CATEGORY_RULES: CategoryRule[] = [
 /**
  * Map a list of extracted tags (+ optional source type) to a frontend category.
  *
- * @param tags        Array of lowercase tag strings from AI extraction
- * @param sourceType  FeedSource.type — 'RSS' | 'YOUTUBE'
+ * @param tags              Array of lowercase tag strings from AI extraction
+ * @param sourceType        FeedSource.type — 'RSS' | 'YOUTUBE'
+ * @param extraHotKeywords  Admin-configured keywords; any match → '热点' (highest priority)
  */
 export function mapTagsToCategory(
   tags: string[],
   sourceType?: string | null,
+  extraHotKeywords?: string[],
 ): FrontendCategory {
   // 1. Source-type override (e.g., YOUTUBE always → YouTube网红)
   if (sourceType && SOURCE_TYPE_CATEGORY[sourceType]) {
@@ -147,7 +149,17 @@ export function mapTagsToCategory(
 
   const lowerTags = tags.map((t) => t.toLowerCase());
 
-  // 2. Walk rules in priority order; first match wins
+  // 2. Admin-configured hot-topic keywords (checked before standard rules)
+  if (extraHotKeywords && extraHotKeywords.length > 0) {
+    const lowerExtras = extraHotKeywords.map((k) => k.toLowerCase().trim()).filter(Boolean);
+    for (const tag of lowerTags) {
+      for (const kw of lowerExtras) {
+        if (tag.includes(kw) || kw.includes(tag)) return '热点';
+      }
+    }
+  }
+
+  // 3. Walk rules in priority order; first match wins
   for (const rule of CATEGORY_RULES) {
     for (const tag of lowerTags) {
       for (const kw of rule.keywords) {

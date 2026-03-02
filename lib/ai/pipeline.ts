@@ -459,8 +459,20 @@ export async function processArticle(
       select: { tag: true },
     });
     const tagStrings = tagRecords.map((t) => t.tag);
-    frontendCategory = mapTagsToCategory(tagStrings, article.feedSource?.type);
-    steps.tags = steps.tags; // already set above
+
+    // Load admin-configured hot keywords from SystemConfig
+    let hotTopicsKeywords: string[] = [];
+    try {
+      const cfgRecord = await prisma.systemConfig.findUnique({ where: { key: 'AI_CONFIG' } });
+      if (cfgRecord?.value) {
+        const parsed = JSON.parse(cfgRecord.value) as Record<string, unknown>;
+        if (typeof parsed.hotTopicsKeywords === 'string' && (parsed.hotTopicsKeywords as string).trim()) {
+          hotTopicsKeywords = (parsed.hotTopicsKeywords as string).split(',').map((k) => k.trim()).filter(Boolean);
+        }
+      }
+    } catch { /* ignore config load errors */ }
+
+    frontendCategory = mapTagsToCategory(tagStrings, article.feedSource?.type, hotTopicsKeywords);
   } catch (err) {
     errors.push(`categoryMapping: ${err instanceof Error ? err.message : String(err)}`);
   }

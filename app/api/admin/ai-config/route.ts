@@ -15,6 +15,7 @@ const CONFIG_KEY = 'AI_CONFIG';
 
 export const DEFAULT_AI_CONFIG = {
   contentPassRule: '',
+  hotTopicsKeywords: 'breaking,trending,viral,crisis,emergency,disaster,accident,shooting,fire,flood,storm,earthquake,health,covid,pandemic,death,murder,crime',
   newsCategoryConfig: '本地\n热点\n政治\n科技\n财经\n文化娱乐\n体育',
   newsCategoryDetail:
     '1. 本地：描述加拿大本地城市的新闻事件\n2. 热点：突发事件、全球重大新闻\n3. 政治：政府、选举、政策相关\n4. 科技：AI、科技产品、互联网\n5. 财经：股市、经济、商业\n6. 文化娱乐：电影、音乐、名人\n7. 体育：各类体育赛事',

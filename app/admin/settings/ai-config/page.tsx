@@ -5,6 +5,7 @@ import { Save, AlertCircle, Loader2 } from 'lucide-react';
 
 interface AIConfig {
   contentPassRule: string;
+  hotTopicsKeywords: string;
   newsCategoryConfig: string;
   newsCategoryDetail: string;
   cityList: string;
@@ -49,6 +50,7 @@ export default function AIConfigPage() {
 
   const [cfg, setCfg] = useState<AIConfig>({
     contentPassRule: '',
+    hotTopicsKeywords: '',
     newsCategoryConfig: '',
     newsCategoryDetail: '',
     cityList: '',
@@ -177,6 +179,21 @@ export default function AIConfigPage() {
             <div>
               <label className={labelClass}>加拿大城市列表（用于本地新闻推荐）</label>
               <textarea rows={4} className={textareaClass} value={cfg.cityList} onChange={set('cityList')} />
+            </div>
+            <div>
+              <label className={labelClass}>
+                🔥 热点分类关键字
+              </label>
+              <p className="text-xs text-text-secondary mb-2">
+                逗号分隔；抓取文章的 AI 标签命中任意关键字，即自动归类为「热点」（优先级高于其他分类规则）
+              </p>
+              <textarea
+                rows={3}
+                className={textareaClass}
+                value={cfg.hotTopicsKeywords}
+                onChange={set('hotTopicsKeywords')}
+                placeholder="breaking, viral, crisis, 突发, 紧急, 重大..."
+              />
             </div>
           </div>
         </div>
