@@ -3,6 +3,7 @@ export interface MockArticle {
   title: string;
   sourceName: string;
   sourceType: 'RSS' | 'YOUTUBE';
+  sourceUrl?: string;
   category: string;
   publishedAt: string;
   imageUrl?: string;
@@ -58,6 +59,7 @@ export const MOCK_ARTICLES: MockArticle[] = [
     title: 'N.B. 地区继续搜寻失踪囚犯 | CTV News 2026年2月23日晚11:30新闻',
     sourceName: 'CTV NEWS',
     sourceType: 'YOUTUBE',
+    sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     category: '本地',
     publishedAt: hoursAgo(3),
     imageUrl: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=300&fit=crop',
@@ -69,6 +71,7 @@ export const MOCK_ARTICLES: MockArticle[] = [
     title: '【2026年2月25日】新斯科舍省两名青少年因冰球欺凌被指控',
     sourceName: 'CTV NEWS',
     sourceType: 'YOUTUBE',
+    sourceUrl: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
     category: '本地',
     publishedAt: hoursAgo(3),
     imageUrl: 'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=300&fit=crop',
@@ -80,6 +83,7 @@ export const MOCK_ARTICLES: MockArticle[] = [
     title: '川普國情咨文108分钟狂炫政绩，美媒质疑逻辑，再酸裴洛西',
     sourceName: '三立新闻',
     sourceType: 'YOUTUBE',
+    sourceUrl: 'https://www.youtube.com/watch?v=9bZkp7q19f0',
     category: '政治',
     publishedAt: hoursAgo(4),
     imageUrl: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=400&h=300&fit=crop',
@@ -103,6 +107,7 @@ export const MOCK_ARTICLES: MockArticle[] = [
     title: '世界棒球经典赛即将开打！啦啦队长准备客场应援',
     sourceName: '東森新聞',
     sourceType: 'YOUTUBE',
+    sourceUrl: 'https://www.youtube.com/watch?v=L_jWHffIx5E',
     category: '体育',
     publishedAt: hoursAgo(5),
     imageUrl: 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=400&h=300&fit=crop',
@@ -114,6 +119,7 @@ export const MOCK_ARTICLES: MockArticle[] = [
     title: '永豐銀行爆發內鬼事件！前資深女經理涉嫌勾結光電商詐貸4千萬元',
     sourceName: '民視新聞網',
     sourceType: 'YOUTUBE',
+    sourceUrl: 'https://www.youtube.com/watch?v=kffacxfA7G4',
     category: '财经',
     publishedAt: hoursAgo(6),
     imageUrl: 'https://images.unsplash.com/photo-1501167786227-4cba60f6d58f?w=400&h=300&fit=crop',
@@ -125,6 +131,7 @@ export const MOCK_ARTICLES: MockArticle[] = [
     title: 'Stephen A. 对 Steelers 总经理 Omar Khan 的「历批评」',
     sourceName: 'ESPN',
     sourceType: 'YOUTUBE',
+    sourceUrl: 'https://www.youtube.com/watch?v=ZZ5LpwO-An4',
     category: '体育',
     publishedAt: hoursAgo(7),
     imageUrl: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400&h=300&fit=crop',
