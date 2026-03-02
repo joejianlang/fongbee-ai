@@ -617,6 +617,7 @@ enum FormFieldType {
   chips
   multichips
   date
+  address
 }
 
 enum FormTemplateType {

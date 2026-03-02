@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Send, Loader2 } from 'lucide-react';
 import DynamicFormRenderer from '@/components/DynamicFormRenderer';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { getCategoryIcon } from '@/lib/categoryIcons';
 import { ServiceCategoryDef, FormTemplateDef } from '@/lib/types';
 
@@ -287,10 +288,9 @@ export default function CustomRequestPage() {
               <p className="text-xs font-semibold text-text-muted mb-2">
                 服务地址 <span className="text-red-400">*</span>
               </p>
-              <input
-                type="text"
+              <AddressAutocomplete
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={(val) => setAddress(val)}
                 placeholder="如：123 Gordon St, Guelph, ON"
                 className={inputBase}
               />

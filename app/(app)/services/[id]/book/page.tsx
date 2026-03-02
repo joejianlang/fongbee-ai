@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, Clock, MapPin, ChevronRight, CheckCircle } from 'lucide-react';
 import { MOCK_SERVICES } from '@/lib/mockServices';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 const TIME_SLOTS = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
 
@@ -168,12 +169,11 @@ export default function BookingPage({ params }: { params: Promise<{ id: string }
           <h2 className="font-semibold text-text-primary dark:text-white mb-3 text-sm flex items-center gap-2">
             <MapPin size={16} className="text-[#0d9488]" />上门地址
           </h2>
-          <textarea
-            rows={2}
+          <AddressAutocomplete
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(val) => setAddress(val)}
             placeholder="请输入完整地址，如：123 Gordon St, Guelph, ON N1G 1Y1"
-            className="w-full px-3 py-2.5 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40 resize-none"
+            className="w-full px-3 py-2.5 text-sm border border-border-primary rounded-lg bg-background text-text-primary placeholder-text-muted outline-none focus:ring-2 focus:ring-[#0d9488]/40"
           />
         </div>
 

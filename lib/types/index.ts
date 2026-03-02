@@ -175,7 +175,8 @@ export type FormFieldType =
   | 'multiselect'
   | 'chips'
   | 'multichips'
-  | 'date';
+  | 'date'
+  | 'address';
 
 export type FormTemplateType =
   | 'USER_REGISTRATION'   // 用户注册表单

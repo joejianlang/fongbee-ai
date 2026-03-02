@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, MapPin, Plus, Trash2, Home, Briefcase } from 'lucide-react';
+import AddressAutocomplete, { AddressDetails } from '@/components/AddressAutocomplete';
 
 interface Address {
   id: string;
@@ -88,22 +89,62 @@ export default function AddressPage() {
         {showForm && (
           <div className="bg-white dark:bg-[#2d2d30] rounded-xl shadow-sm p-4 space-y-3">
             <p className="font-semibold text-sm text-text-primary dark:text-white">{t('newAddress')}</p>
-            {[
-              { key: 'label', label: t('labelField'), placeholder: '家' },
-              { key: 'line1', label: t('streetField'), placeholder: '123 Main St' },
-              { key: 'city',  label: t('cityField'),   placeholder: 'Guelph' },
-              { key: 'postal',label: t('postalField'), placeholder: 'N1G 1Y1' },
-            ].map((f) => (
-              <div key={f.key}>
-                <label className="block text-xs text-text-muted mb-1">{f.label}</label>
-                <input
-                  className={inputClass}
-                  placeholder={f.placeholder}
-                  value={(form as Record<string, string>)[f.key]}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                />
-              </div>
-            ))}
+
+            {/* Label field */}
+            <div>
+              <label className="block text-xs text-text-muted mb-1">{t('labelField')}</label>
+              <input
+                className={inputClass}
+                placeholder="家"
+                value={form.label}
+                onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
+              />
+            </div>
+
+            {/* Street — Google Places autocomplete */}
+            <div>
+              <label className="block text-xs text-text-muted mb-1">{t('streetField')}</label>
+              <AddressAutocomplete
+                value={form.line1}
+                onChange={(val, details?: AddressDetails) => {
+                  if (details) {
+                    setForm((prev) => ({
+                      ...prev,
+                      line1:    val,
+                      city:     details.city     || prev.city,
+                      province: details.province || prev.province,
+                      postal:   details.postalCode || prev.postal,
+                    }));
+                  } else {
+                    setForm((prev) => ({ ...prev, line1: val }));
+                  }
+                }}
+                placeholder="123 Main St"
+                className={inputClass}
+              />
+            </div>
+
+            {/* City */}
+            <div>
+              <label className="block text-xs text-text-muted mb-1">{t('cityField')}</label>
+              <input
+                className={inputClass}
+                placeholder="Guelph"
+                value={form.city}
+                onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+              />
+            </div>
+
+            {/* Postal */}
+            <div>
+              <label className="block text-xs text-text-muted mb-1">{t('postalField')}</label>
+              <input
+                className={inputClass}
+                placeholder="N1G 1Y1"
+                value={form.postal}
+                onChange={(e) => setForm((prev) => ({ ...prev, postal: e.target.value }))}
+              />
+            </div>
             <div className="flex gap-2 pt-1">
               <button onClick={addAddress} className="flex-1 py-2.5 bg-[#0d9488] text-white rounded-lg text-sm font-medium hover:bg-[#0a7c71]">{t('save')}</button>
               <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 border border-border-primary text-text-secondary rounded-lg text-sm hover:bg-gray-50">{t('cancel')}</button>

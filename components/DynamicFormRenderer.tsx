@@ -1,6 +1,7 @@
 'use client';
 
 import { FormFieldDef } from '@/lib/types';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 interface DynamicFormRendererProps {
   fields: FormFieldDef[];
@@ -201,6 +202,22 @@ export default function DynamicFormRenderer({
               </div>
             );
           }
+
+          // ── address (Google Places autocomplete) ─────────
+          case 'address':
+            return (
+              <div key={field.id}>
+                {label}
+                <AddressAutocomplete
+                  value={(value as string) ?? ''}
+                  onChange={(val) => onChange(field.fieldKey, val)}
+                  placeholder={field.placeholder ?? '请输入地址'}
+                  required={field.required}
+                  disabled={disabled}
+                  className={inputBase}
+                />
+              </div>
+            );
 
           default:
             return null;
