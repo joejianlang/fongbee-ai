@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ChevronDown, ChevronUp, Play } from 'lucide-react';
 import type { MockArticle } from '@/lib/mockData';
 
 interface ArticleCardProps {
-  article: MockArticle;
+  article: MockArticle & { sourceId?: string; summaryZh?: string };
   layout?: 'compact' | 'full';
 }
 
@@ -28,9 +29,19 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
       <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden">
         {/* meta 行 */}
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
-          <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold uppercase truncate max-w-[60%]">
-            {article.sourceName}
-          </span>
+          {article.sourceId ? (
+            <Link
+              href={`/news/source/${article.sourceId}`}
+              className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold uppercase truncate max-w-[60%] hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {article.sourceName}
+            </Link>
+          ) : (
+            <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold uppercase truncate max-w-[60%]">
+              {article.sourceName}
+            </span>
+          )}
           <span className="text-text-muted">·</span>
           <span className="text-text-muted flex-shrink-0">{timeAgo(article.publishedAt)}</span>
         </div>
@@ -78,10 +89,10 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         </div>
 
         {/* 展开内容 */}
-        {expanded && article.summary && (
+        {expanded && (article.summaryZh || article.summary) && (
           <div className="px-3 pb-3 border-t border-border-primary">
             <p className="text-text-secondary dark:text-gray-300 text-sm leading-relaxed pt-2.5">
-              {article.summary}
+              {article.summaryZh || article.summary}
             </p>
           </div>
         )}
@@ -125,9 +136,19 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           {/* meta 行：来源 · 分类 · 时间 */}
           <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1.5">
-            <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold max-w-[120px] truncate uppercase tracking-wide">
-              {article.sourceName}
-            </span>
+            {article.sourceId ? (
+              <Link
+                href={`/news/source/${article.sourceId}`}
+                className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold max-w-[120px] truncate uppercase tracking-wide hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {article.sourceName}
+              </Link>
+            ) : (
+              <span className="text-[#0d9488] dark:text-[#2dd4bf] font-semibold max-w-[120px] truncate uppercase tracking-wide">
+                {article.sourceName}
+              </span>
+            )}
             <span className="text-text-muted">·</span>
             <span className="text-text-muted">{article.category}</span>
             <span className="text-text-muted">·</span>
@@ -153,10 +174,10 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
       </div>
 
       {/* ── 展开内容 ── */}
-      {expanded && article.summary && (
+      {expanded && (article.summaryZh || article.summary) && (
         <div className="px-3 pb-3 md:px-0 border-t border-border-primary">
           <p className="text-text-secondary dark:text-gray-300 text-sm leading-relaxed pt-2.5">
-            {article.summary}
+            {article.summaryZh || article.summary}
           </p>
         </div>
       )}

@@ -139,6 +139,7 @@ export async function GET(
         include: {
           tags: { select: { tag: true } },
           newsCategory: { select: { name: true, icon: true } },
+          feedSource: { select: { id: true, name: true, type: true } },
           ...(userId
             ? {
                 userInteractions: {
@@ -159,6 +160,9 @@ export async function GET(
       ...article,
       tags:            article.tags.map((t: { tag: string }) => t.tag),
       userInteraction: article.userInteractions?.[0] ?? null,
+      sourceName:      article.feedSource?.name ?? null,
+      sourceType:      article.feedSource?.type ?? null,
+      sourceId:        article.feedSource?.id ?? null,
     }));
 
     return NextResponse.json({
