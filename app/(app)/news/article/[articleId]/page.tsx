@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Heart, Share2, Bookmark, ChevronUp } from 'lucide-react';
@@ -75,6 +75,7 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
   const [activeTab, setActiveTab] = useState<'summary' | 'analysis'>('summary');
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -115,57 +116,62 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
   const hasAnalysis = fiveW1H !== null && Object.values(fiveW1H).some((v) => v && v !== 'unknown');
 
   return (
-    <div className="pb-20">
-      {/* 顶部导航 */}
-      <div className="sticky top-14 z-40 bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center justify-between">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary transition-colors text-sm"
-        >
-          <ArrowLeft size={18} />
-          返回
-        </Link>
-        <span className="font-semibold text-text-primary dark:text-white text-sm truncate max-w-[55%]">
-          {article.sourceName}
-        </span>
-        <button
-          onClick={() => navigator.share?.({ title: displayTitle, url: window.location.href }).catch(() => {})}
-          className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
-          aria-label="分享"
-        >
-          <Share2 size={20} />
-        </button>
+    <div className="fixed inset-x-0 top-14 bottom-20 flex flex-col overflow-hidden bg-background z-30 md:static md:inset-auto md:flex md:flex-col md:h-auto md:overflow-visible md:pb-20">
+      {/* 顶部固定区域：导航 + 视频/图片 */}
+      <div className="flex-shrink-0">
+        {/* 顶部导航 */}
+        <div className="bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center justify-between">
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary transition-colors text-sm"
+          >
+            <ArrowLeft size={18} />
+            返回
+          </Link>
+          <span className="font-semibold text-text-primary dark:text-white text-sm truncate max-w-[55%]">
+            {article.sourceName}
+          </span>
+          <button
+            onClick={() => navigator.share?.({ title: displayTitle, url: window.location.href }).catch(() => {})}
+            className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
+            aria-label="分享"
+          >
+            <Share2 size={20} />
+          </button>
+        </div>
+
+        {/* 图片 / 视频区域 */}
+        {videoId ? (
+          <div className="w-full aspect-video bg-black">
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
+              title={displayTitle}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          </div>
+        ) : article.imageUrl ? (
+          <div className="w-full aspect-video relative bg-gray-100 dark:bg-gray-700">
+            <Image
+              src={article.imageUrl}
+              alt={displayTitle}
+              fill
+              className="object-cover"
+              sizes="100vw"
+              unoptimized
+              priority
+            />
+          </div>
+        ) : (
+          <div className="w-full aspect-video bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+            <span className="text-gray-400 text-sm">无图片</span>
+          </div>
+        )}
       </div>
 
-      {/* 图片 / 视频区域 */}
-      {videoId ? (
-        <div className="w-full aspect-video bg-black">
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
-            title={displayTitle}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="w-full h-full"
-          />
-        </div>
-      ) : article.imageUrl ? (
-        <div className="w-full aspect-video relative bg-gray-100 dark:bg-gray-700">
-          <Image
-            src={article.imageUrl}
-            alt={displayTitle}
-            fill
-            className="object-cover"
-            sizes="100vw"
-            unoptimized
-            priority
-          />
-        </div>
-      ) : (
-        <div className="w-full aspect-video bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-          <span className="text-gray-400 text-sm">无图片</span>
-        </div>
-      )}
-
+      {/* 可滚动内容区域 */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
       <div className="px-4 md:px-0">
         {/* 来源 + 时间 */}
         <div className="flex items-center gap-1.5 text-xs text-text-muted mt-3 mb-2">
@@ -290,15 +296,16 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
         )}
 
         {/* 返回顶部 */}
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8 flex justify-center pb-4">
           <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors"
           >
             <ChevronUp size={16} />
             收起
           </button>
         </div>
+      </div>
       </div>
     </div>
   );
