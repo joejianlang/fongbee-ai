@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronUp, VolumeX, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, VolumeX, Share2, ExternalLink } from 'lucide-react';
 import type { MockArticle } from '@/lib/mockData';
 
 interface ArticleCardProps {
@@ -60,12 +59,12 @@ interface VideoBlockProps {
   title: string;
   sizeCls: string;
   roundedCls?: string;
+  onExpand: () => void;
 }
 
-function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, roundedCls = 'rounded-lg' }: VideoBlockProps) {
+function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, roundedCls = 'rounded-lg', onExpand }: VideoBlockProps) {
   const [playing, setPlaying] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   const stop = useCallback(() => setPlaying(false), []);
   const startAutoplay = useCallback(() => { setPlaying(true); notifyPlaying(articleId); }, [articleId]);
@@ -88,7 +87,7 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
   }, [startAutoplay, stop]);
 
   const iframeSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&enablejsapi=1&playsinline=1`;
-  const goToDetail = (e: React.MouseEvent) => { e.stopPropagation(); router.push(`/news/article/${articleId}`); };
+  const handleClick = (e: React.MouseEvent) => { e.stopPropagation(); onExpand(); };
 
   return (
     <div ref={containerRef} className={`${sizeCls} ${roundedCls} overflow-hidden bg-black relative flex-shrink-0`}>
@@ -96,15 +95,15 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
         <div className="absolute inset-0">
           <iframe src={iframeSrc} title={title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full" />
           <button
-            onClick={goToDetail}
+            onClick={handleClick}
             className="absolute inset-0 w-full h-full z-10 flex items-end justify-end p-2"
-            aria-label="点击查看详情"
+            aria-label="展开详情"
           >
             <span className="bg-black/60 rounded-full p-1.5"><VolumeX size={14} className="text-white" /></span>
           </button>
         </div>
       ) : (
-        <button className="absolute inset-0 w-full h-full" onClick={goToDetail} aria-label="播放视频">
+        <button className="absolute inset-0 w-full h-full" onClick={handleClick} aria-label="展开详情">
           {imageUrl ? (
             <Image src={imageUrl} alt={`${sourceName} - ${title}`} fill className="object-cover" sizes="(max-width: 768px) 128px, 400px" unoptimized />
           ) : (
@@ -132,6 +131,7 @@ function ExpandedPanel({
   onCollapse: () => void;
 }) {
   const [tab, setTab] = useState<'summary' | 'insight'>('summary');
+  const videoId = article.sourceType === 'YOUTUBE' ? extractVideoId(article.sourceUrl) : null;
 
   const share = () => {
     if (navigator.share) {
@@ -143,12 +143,34 @@ function ExpandedPanel({
 
   return (
     <div className="border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
-      {/* 图片 */}
-      {article.imageUrl && (
+      {/* 视频 / 图片 */}
+      {videoId ? (
+        <div className="relative w-full aspect-video bg-black">
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
+            title={article.titleZh || article.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="w-full h-full"
+          />
+          {article.sourceUrl && (
+            <a
+              href={article.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2.5 py-1.5 rounded-full transition-colors"
+            >
+              <ExternalLink size={11} />
+              在 YouTube 打开
+            </a>
+          )}
+        </div>
+      ) : article.imageUrl ? (
         <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-800">
           <Image src={article.imageUrl} alt={article.titleZh || article.title} fill className="object-cover" unoptimized />
         </div>
-      )}
+      ) : null}
 
       {/* 来源 + 关注按钮 */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -241,7 +263,6 @@ function ExpandedPanel({
 // ─── 主组件 ────────────────────────────────────────────────────────────────
 export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const router = useRouter();
   const isYoutube = article.sourceType === 'YOUTUBE';
   const videoId = isYoutube ? extractVideoId(article.sourceUrl) : null;
   const hasSummary = !!(article.summaryZh || article.summary);
@@ -254,7 +275,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   /* ── Full-width layout ── */
   if (layout === 'full') {
     return (
-      <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => router.push(`/news/article/${article.id}`)}>
+      <article className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => setExpanded((v) => !v)}>
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
           <span className="max-w-[60%] truncate"><SourceLabel article={article} /></span>
           <span className="text-text-muted">·</span>
@@ -262,7 +283,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         </div>
 
         {videoId ? (
-          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-full aspect-video" roundedCls="rounded-none" />
+          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-full aspect-video" roundedCls="rounded-none" onExpand={() => setExpanded(true)} />
         ) : (
           <div className="relative aspect-video w-full bg-gray-100 dark:bg-gray-700">
             {article.imageUrl ? (
@@ -285,19 +306,19 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
           )}
         </div>
 
-        {expanded && hasSummary && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} />}
+        {expanded && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} />}
       </article>
     );
   }
 
   /* ── Compact layout ── */
   return (
-    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => router.push(`/news/article/${article.id}`)}>
+    <article className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none overflow-hidden cursor-pointer" onClick={() => setExpanded((v) => !v)}>
       <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
         {/* 缩略图 / 视频 */}
         {videoId ? (
-          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-32 h-24 md:w-[200px] md:h-[130px]" />
+          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-32 h-24 md:w-[200px] md:h-[130px]" onExpand={() => setExpanded(true)} />
         ) : (
           <div className="flex-shrink-0 w-32 h-24 md:w-[200px] md:h-[130px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
             {article.imageUrl ? (
@@ -339,7 +360,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         </div>
       </div>
 
-      {expanded && hasSummary && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} />}
+      {expanded && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} />}
     </article>
   );
 }
