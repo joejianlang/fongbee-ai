@@ -59,7 +59,7 @@ async function extractChannelIdFromHandle(
       {
         params: {
           part: 'id',
-          forUsername: handle,
+          forHandle: handle,
           key: apiKey,
         },
         timeout: 10000,
