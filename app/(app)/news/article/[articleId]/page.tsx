@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Heart, Share2, Bookmark, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, Bookmark, ChevronUp, ExternalLink } from 'lucide-react';
 
 interface ArticleDetail {
   id: string;
@@ -75,7 +75,6 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
   const [activeTab, setActiveTab] = useState<'summary' | 'analysis'>('summary');
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -116,9 +115,9 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
   const hasAnalysis = fiveW1H !== null && Object.values(fiveW1H).some((v) => v && v !== 'unknown');
 
   return (
-    <div className="fixed inset-x-0 top-14 bottom-20 flex flex-col overflow-hidden bg-background z-30 md:static md:inset-auto md:flex md:flex-col md:h-auto md:overflow-visible md:pb-20">
-      {/* 顶部固定区域：导航 + 视频/图片 */}
-      <div className="flex-shrink-0">
+    <div className="pb-20">
+      {/* 顶部固定区域：导航 + 视频/图片（sticky，滑动后吸顶） */}
+      <div className="sticky top-14 z-30 bg-background">
         {/* 顶部导航 */}
         <div className="bg-white dark:bg-[#2d2d30] border-b border-border-primary px-4 py-3 flex items-center justify-between">
           <Link
@@ -142,7 +141,7 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
 
         {/* 图片 / 视频区域 */}
         {videoId ? (
-          <div className="w-full aspect-video bg-black">
+          <div className="w-full aspect-video bg-black relative">
             <iframe
               src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
               title={displayTitle}
@@ -150,6 +149,18 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
               allowFullScreen
               className="w-full h-full"
             />
+            {/* 在 YouTube 打开按钮（视频受限时备用） */}
+            {article.sourceUrl && (
+              <a
+                href={article.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2.5 py-1.5 rounded-full transition-colors"
+              >
+                <ExternalLink size={11} />
+                在 YouTube 打开
+              </a>
+            )}
           </div>
         ) : article.imageUrl ? (
           <div className="w-full aspect-video relative bg-gray-100 dark:bg-gray-700">
@@ -170,8 +181,7 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
         )}
       </div>
 
-      {/* 可滚动内容区域 */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
+      {/* 滚动内容区域 */}
       <div className="px-4 md:px-0">
         {/* 来源 + 时间 */}
         <div className="flex items-center gap-1.5 text-xs text-text-muted mt-3 mb-2">
@@ -298,14 +308,13 @@ export default function ArticleDetailPage({ params }: { params: { articleId: str
         {/* 返回顶部 */}
         <div className="mt-8 flex justify-center pb-4">
           <button
-            onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors"
           >
             <ChevronUp size={16} />
             收起
           </button>
         </div>
-      </div>
       </div>
     </div>
   );
