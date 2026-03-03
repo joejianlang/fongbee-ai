@@ -2,11 +2,11 @@
     "crons": [
         {
             "path": "/api/cron/crawl-feeds",
-            "schedule": "0 * * * *"
+            "schedule": "0 0 * * *"
         },
         {
             "path": "/api/cron/process-articles",
-            "schedule": "15 * * * *"
+            "schedule": "15 0 * * *"
         }
     ]
 }
