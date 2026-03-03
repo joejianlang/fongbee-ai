@@ -56,6 +56,7 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   const [city,    setCity]    = useState('Guelph');
   const [cityOpen, setCityOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const cityRef = useRef<HTMLDivElement>(null);
 
   const NAV_LINKS = [
@@ -118,15 +119,29 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   };
 
   const autoDetectCity = () => {
-    if (!navigator.geolocation) return;
+    setGeoError(null);
+    if (!navigator.geolocation) {
+      setGeoError('浏览器不支持定位');
+      return;
+    }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const nearest = findNearestCity(pos.coords.latitude, pos.coords.longitude);
         selectCity(nearest);
         setLocating(false);
+        setGeoError(null);
       },
-      () => setLocating(false),
+      (err) => {
+        setLocating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoError('已拒绝定位权限，请在浏览器设置中允许');
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setGeoError('无法获取位置信息');
+        } else {
+          setGeoError('定位超时，请手动选择城市');
+        }
+      },
       { timeout: 8000, maximumAge: 60000 }
     );
   };
@@ -173,11 +188,16 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
               <button
                 onClick={autoDetectCity}
                 disabled={locating}
-                className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-[#0d9488] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-600 font-medium"
+                className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-[#0d9488] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-600 font-medium disabled:opacity-60"
               >
                 <MapPin size={13} className={locating ? 'animate-pulse' : ''} />
                 {locating ? '定位中...' : '自动定位'}
               </button>
+              {geoError && (
+                <p className="px-4 py-2 text-xs text-red-500 dark:text-red-400 border-b border-gray-100 dark:border-gray-600">
+                  {geoError}
+                </p>
+              )}
               {CITY_OPTIONS.map((c) => (
                 <button
                   key={c}
