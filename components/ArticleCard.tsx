@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, VolumeX, Share2, ExternalLink } from 'lucide-react';
+import { VolumeX } from 'lucide-react';
 import type { MockArticle } from '@/lib/mockData';
+import { usePlayer } from '@/context/PlayerContext';
 
 interface ArticleCardProps {
   article: MockArticle & { sourceId?: string; summaryZh?: string; sourceUrl?: string; titleZh?: string };
@@ -44,16 +45,10 @@ function SourceLabel({ article }: { article: ArticleCardProps['article'] }) {
   );
 }
 
-/** 全局事件：通知所有卡片"某个视频开始播放了" */
+/** 全局事件：通知所有 VideoBlock "某个视频开始自动播放了" */
 const YT_PLAY_EVENT = 'yt-card-autoplay';
 function notifyPlaying(articleId: string) {
   window.dispatchEvent(new CustomEvent(YT_PLAY_EVENT, { detail: articleId }));
-}
-
-/** 全局事件：通知所有卡片"某张卡片展开了"（互斥展开） */
-const CARD_EXPAND_EVENT = 'card-expand';
-function notifyCardExpanded(articleId: string) {
-  window.dispatchEvent(new CustomEvent(CARD_EXPAND_EVENT, { detail: articleId }));
 }
 
 // ─── YouTube 视频区块 ──────────────────────────────────────────────────────
@@ -128,201 +123,21 @@ function VideoBlock({ videoId, articleId, imageUrl, sourceName, title, sizeCls, 
   );
 }
 
-// ── 内联展开面板 ────────────────────────────────────────────────────────────
-function ExpandedPanel({
-  article,
-  onCollapse,
-  showMedia = true,
-}: {
-  article: ArticleCardProps['article'];
-  onCollapse: () => void;
-  showMedia?: boolean;
-}) {
-  const [tab, setTab] = useState<'summary' | 'insight'>('summary');
-  const panelRef = useRef<HTMLDivElement>(null);
-  const videoId = showMedia && article.sourceType === 'YOUTUBE' ? extractVideoId(article.sourceUrl) : null;
-
-  // 展开时自动滚动视频/图片到屏幕顶部
-  useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    // 读取动态 header 高度
-    const headerH = parseInt(
-      getComputedStyle(document.documentElement).getPropertyValue('--header-h') || '56',
-      10
-    );
-    // 读取 CategoryTabBar 实际高度
-    const catBar = document.querySelector('nav[aria-label]');
-    const catBarH = catBar ? catBar.getBoundingClientRect().height : 44;
-    const offset = headerH + catBarH;
-
-    const rect = el.getBoundingClientRect();
-    if (rect.top > offset + 10) {
-      window.scrollTo({
-        top: window.scrollY + rect.top - offset,
-        behavior: 'smooth',
-      });
-    }
-  }, []);
-
-  const share = () => {
-    if (navigator.share) {
-      navigator.share({ title: article.titleZh || article.title, url: article.sourceUrl || window.location.href }).catch(() => { });
-    } else {
-      navigator.clipboard.writeText(article.sourceUrl || window.location.href).catch(() => { });
-    }
-  };
-
-  return (
-    <div ref={panelRef} className="border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
-      {/* 视频 / 图片 — sticky at top when expanded */}
-      {showMedia && (
-        videoId ? (
-          <div className="sticky top-[104px] z-20 w-full aspect-video bg-black">
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1`}
-              title={article.titleZh || article.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full"
-            />
-            {article.sourceUrl && (
-              <a
-                href={article.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 hover:bg-black/90 text-white text-xs px-2.5 py-1.5 rounded-full transition-colors"
-              >
-                <ExternalLink size={11} />
-                在 YouTube 打开
-              </a>
-            )}
-          </div>
-        ) : article.imageUrl ? (
-          <div className="sticky top-[104px] z-20 w-full aspect-video bg-gray-100 dark:bg-gray-800">
-            <Image src={article.imageUrl} alt={article.titleZh || article.title} fill className="object-cover" unoptimized />
-          </div>
-        ) : null
-      )}
-
-      {/* 来源 + 关注按钮 */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-1">
-        <div className="flex items-center gap-1.5 text-sm flex-wrap">
-          <SourceLabel article={article} />
-          {article.category && (
-            <>
-              <span className="text-text-muted">·</span>
-              <span className="text-text-muted text-xs">{article.category}</span>
-            </>
-          )}
-          <span className="text-text-muted">·</span>
-          <span className="text-text-muted text-xs">{timeAgo(article.publishedAt)}</span>
-        </div>
-        {article.sourceId && (
-          <Link
-            href={`/news/source/${article.sourceId}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs px-3 py-1 rounded-full border border-[#0d9488] text-[#0d9488] hover:bg-[#0d9488]/10 transition-colors flex-shrink-0 ml-2"
-          >
-            + 关注
-          </Link>
-        )}
-      </div>
-
-      {/* 标题 */}
-      <h2 className="text-text-primary dark:text-white text-base font-bold leading-snug px-4 py-2">
-        {article.titleZh || article.title}
-      </h2>
-
-      {/* Tabs + 内容 */}
-      {(article.summaryZh || article.summary) && (
-        <>
-          <div className="flex border-b border-border-primary px-4">
-            <button
-              onClick={() => setTab('summary')}
-              className={`py-2 mr-6 text-sm font-medium border-b-2 transition-colors ${tab === 'summary' ? 'border-[#0d9488] text-[#0d9488]' : 'border-transparent text-text-muted'}`}
-            >
-              内容摘要
-            </button>
-            <button
-              onClick={() => setTab('insight')}
-              className={`py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'insight' ? 'border-[#0d9488] text-[#0d9488]' : 'border-transparent text-text-muted'}`}
-            >
-              专业解读
-            </button>
-          </div>
-          <div className="px-4 py-3">
-            <p className="text-text-secondary dark:text-gray-300 text-base leading-relaxed">
-              {tab === 'summary'
-                ? (article.summaryZh || article.summary)
-                : '暂无专业解读'}
-            </p>
-          </div>
-        </>
-      )}
-
-      {/* 收起按钮 */}
-      <div className="flex justify-center py-3 border-t border-border-primary">
-        <button
-          onClick={onCollapse}
-          className="flex items-center gap-1.5 px-6 py-2 rounded-full border border-border-primary text-text-secondary text-sm hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-        >
-          <ChevronUp size={15} />
-          收起
-        </button>
-      </div>
-
-      {/* 阅读原文 + 分享 */}
-      <div className="flex items-center justify-between px-4 pb-4 border-t border-border-primary pt-2">
-        {article.sourceUrl ? (
-          <a
-            href={article.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-[#0d9488] dark:text-[#2dd4bf] text-sm flex items-center gap-1 hover:underline"
-          >
-            阅读原文 →
-          </a>
-        ) : <span />}
-        <button onClick={share} className="text-text-muted hover:text-text-primary transition-colors" aria-label="分享">
-          <Share2 size={18} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── 主组件 ────────────────────────────────────────────────────────────────
 export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const { openPlayer } = usePlayer();
   const isYoutube = article.sourceType === 'YOUTUBE';
   const videoId = isYoutube ? extractVideoId(article.sourceUrl) : null;
-  const hasSummary = !!(article.summaryZh || article.summary);
 
-  // 互斥展开：监听其它卡片展开事件，自动折叠自己
-  useEffect(() => {
-    const handler = (e: Event) => {
-      if ((e as CustomEvent<string>).detail !== article.id) setExpanded(false);
-    };
-    window.addEventListener(CARD_EXPAND_EVENT, handler);
-    return () => window.removeEventListener(CARD_EXPAND_EVENT, handler);
-  }, [article.id]);
-
-  // 展开时通知其它卡片
-  const expand = () => { setExpanded(true); notifyCardExpanded(article.id); };
-  const collapse = () => setExpanded(false);
-
-  const toggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    expanded ? collapse() : expand();
-  };
+  const handleOpen = () => openPlayer(article);
 
   /* ── Full-width layout ── */
   if (layout === 'full') {
     return (
-      <article className={`bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => expanded ? collapse() : expand()}>
+      <article
+        className="bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none cursor-pointer overflow-hidden"
+        onClick={handleOpen}
+      >
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
           <span className="max-w-[60%] truncate"><SourceLabel article={article} /></span>
           <span className="text-text-muted">·</span>
@@ -330,7 +145,16 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         </div>
 
         {videoId ? (
-          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-full aspect-video" roundedCls="rounded-none" onExpand={expand} />
+          <VideoBlock
+            videoId={videoId}
+            articleId={article.id}
+            imageUrl={article.imageUrl}
+            sourceName={article.sourceName}
+            title={article.title}
+            sizeCls="w-full aspect-video"
+            roundedCls="rounded-none"
+            onExpand={handleOpen}
+          />
         ) : (
           <div className="relative aspect-video w-full bg-gray-100 dark:bg-gray-700">
             {article.imageUrl ? (
@@ -342,76 +166,62 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         )}
 
         <div className="px-3 pt-2.5 pb-3">
-          <h2 className="text-text-primary dark:text-white text-sm font-semibold leading-snug line-clamp-2 mb-2">
+          <h2 className="text-text-primary dark:text-white text-sm font-semibold leading-snug line-clamp-2">
             {article.titleZh || article.title}
           </h2>
-          {hasSummary && (
-            <button onClick={toggle} className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity" aria-expanded={expanded}>
-              {isYoutube ? '视频摘要' : '详情'}
-              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
-          )}
         </div>
-
-        {expanded && <ExpandedPanel article={article} onCollapse={collapse} showMedia={false} />}
       </article>
     );
   }
 
   /* ── Compact layout ── */
   return (
-    <article className={`bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => expanded ? collapse() : expand()}>
+    <article
+      className="bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none cursor-pointer overflow-hidden"
+      onClick={handleOpen}
+    >
+      <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
-      {/* 卡片头部：仅折叠时显示 */}
-      {!expanded && (
-        <div className="flex gap-4 p-4 md:py-5 md:px-0">
-
-          {/* 缩略图 / 视频 */}
-          {videoId ? (
-            <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-32 h-24 md:w-[200px] md:h-[130px]" onExpand={expand} />
-          ) : (
-            <div className="flex-shrink-0 w-32 h-24 md:w-[200px] md:h-[130px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
-              {article.imageUrl ? (
-                <Image src={article.imageUrl} alt={`${article.sourceName} - ${article.title}`} fill className="object-cover" sizes="(max-width: 768px) 128px, 200px" unoptimized />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center"><span className="text-gray-400 text-xs">无图片</span></div>
-              )}
-            </div>
-          )}
-
-          {/* 内容区 */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1.5">
-              <span className="max-w-[120px] truncate"><SourceLabel article={article} /></span>
-              {article.category && (
-                <>
-                  <span className="text-text-muted">·</span>
-                  <span className="text-text-muted">{article.category}</span>
-                </>
-              )}
-              <span className="text-text-muted">·</span>
-              <span className="text-text-muted flex-shrink-0">{timeAgo(article.publishedAt)}</span>
-            </div>
-
-            <h2 className="text-text-primary dark:text-white text-[15px] font-semibold leading-snug line-clamp-2 mb-2">
-              {article.titleZh || article.title}
-            </h2>
-
-            {hasSummary && (
-              <button
-                onClick={toggle}
-                className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity self-start"
-                aria-expanded={expanded}
-              >
-                详情
-                <ChevronDown size={13} />
-              </button>
+        {/* 缩略图 / 视频 */}
+        {videoId ? (
+          <VideoBlock
+            videoId={videoId}
+            articleId={article.id}
+            imageUrl={article.imageUrl}
+            sourceName={article.sourceName}
+            title={article.title}
+            sizeCls="w-32 h-24 md:w-[200px] md:h-[130px]"
+            onExpand={handleOpen}
+          />
+        ) : (
+          <div className="flex-shrink-0 w-32 h-24 md:w-[200px] md:h-[130px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
+            {article.imageUrl ? (
+              <Image src={article.imageUrl} alt={`${article.sourceName} - ${article.title}`} fill className="object-cover" sizes="(max-width: 768px) 128px, 200px" unoptimized />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center"><span className="text-gray-400 text-xs">无图片</span></div>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {expanded && <ExpandedPanel article={article} onCollapse={collapse} />}
+        {/* 内容区 */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1.5">
+            <span className="max-w-[120px] truncate"><SourceLabel article={article} /></span>
+            {article.category && (
+              <>
+                <span className="text-text-muted">·</span>
+                <span className="text-text-muted">{article.category}</span>
+              </>
+            )}
+            <span className="text-text-muted">·</span>
+            <span className="text-text-muted flex-shrink-0">{timeAgo(article.publishedAt)}</span>
+          </div>
+
+          <h2 className="text-text-primary dark:text-white text-[15px] font-semibold leading-snug line-clamp-2">
+            {article.titleZh || article.title}
+          </h2>
+        </div>
+      </div>
     </article>
   );
 }

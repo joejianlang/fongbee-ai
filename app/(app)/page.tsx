@@ -5,6 +5,7 @@ import { Loader } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import CategoryTabBar from '@/components/CategoryTabBar';
 import { ArticleCard } from '@/components/ArticleCard';
+import { FloatingPlayer } from '@/components/FloatingPlayer';
 import { MOCK_ARTICLES, filterMockArticles } from '@/lib/mockData';
 import type { MockArticle } from '@/lib/mockData';
 
@@ -79,6 +80,9 @@ export default function FeedPage() {
     <>
       {/* 分类 Tab */}
       <CategoryTabBar active={activeCategory} onChange={handleCategoryChange} />
+
+      {/* 全局悬浮播放器 — 点击卡片后在此处吸顶显示 */}
+      <FloatingPlayer />
 
       {/* 文章列表 */}
       <div className="mt-2 md:mt-0 md:bg-white dark:md:bg-[#2d2d30] md:rounded-lg md:overflow-hidden md:shadow-sm">
