@@ -50,6 +50,12 @@ function notifyPlaying(articleId: string) {
   window.dispatchEvent(new CustomEvent(YT_PLAY_EVENT, { detail: articleId }));
 }
 
+/** 全局事件：通知所有卡片"某张卡片展开了"（互斥展开） */
+const CARD_EXPAND_EVENT = 'card-expand';
+function notifyCardExpanded(articleId: string) {
+  window.dispatchEvent(new CustomEvent(CARD_EXPAND_EVENT, { detail: articleId }));
+}
+
 // ─── YouTube 视频区块 ──────────────────────────────────────────────────────
 interface VideoBlockProps {
   videoId: string;
@@ -295,15 +301,28 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
   const videoId = isYoutube ? extractVideoId(article.sourceUrl) : null;
   const hasSummary = !!(article.summaryZh || article.summary);
 
+  // 互斥展开：监听其它卡片展开事件，自动折叠自己
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== article.id) setExpanded(false);
+    };
+    window.addEventListener(CARD_EXPAND_EVENT, handler);
+    return () => window.removeEventListener(CARD_EXPAND_EVENT, handler);
+  }, [article.id]);
+
+  // 展开时通知其它卡片
+  const expand = () => { setExpanded(true); notifyCardExpanded(article.id); };
+  const collapse = () => setExpanded(false);
+
   const toggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setExpanded((v) => !v);
+    expanded ? collapse() : expand();
   };
 
   /* ── Full-width layout ── */
   if (layout === 'full') {
     return (
-      <article className={`bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => setExpanded((v) => !v)}>
+      <article className={`bg-white dark:bg-[#2d2d30] rounded-xl mx-3 md:mx-0 mb-3 md:mb-0 md:rounded-none md:border-b md:border-border-primary last:border-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => expanded ? collapse() : expand()}>
         <div className="flex items-center gap-1 text-xs px-3 pt-3 pb-2">
           <span className="max-w-[60%] truncate"><SourceLabel article={article} /></span>
           <span className="text-text-muted">·</span>
@@ -311,7 +330,7 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
         </div>
 
         {videoId ? (
-          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-full aspect-video" roundedCls="rounded-none" onExpand={() => setExpanded(true)} />
+          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-full aspect-video" roundedCls="rounded-none" onExpand={expand} />
         ) : (
           <div className="relative aspect-video w-full bg-gray-100 dark:bg-gray-700">
             {article.imageUrl ? (
@@ -334,61 +353,65 @@ export function ArticleCard({ article, layout = 'compact' }: ArticleCardProps) {
           )}
         </div>
 
-        {expanded && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} showMedia={false} />}
+        {expanded && <ExpandedPanel article={article} onCollapse={collapse} showMedia={false} />}
       </article>
     );
   }
 
   /* ── Compact layout ── */
   return (
-    <article className={`bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => setExpanded((v) => !v)}>
-      <div className="flex gap-4 p-4 md:py-5 md:px-0">
+    <article className={`bg-white dark:bg-[#2d2d30] rounded-xl md:rounded-none md:border-b md:border-border-primary last:border-0 mx-3 md:mx-0 mb-3 md:mb-0 shadow-sm md:shadow-none cursor-pointer ${expanded ? '' : 'overflow-hidden'}`} onClick={() => expanded ? collapse() : expand()}>
 
-        {/* 缩略图 / 视频 */}
-        {videoId ? (
-          <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-32 h-24 md:w-[200px] md:h-[130px]" onExpand={() => setExpanded(true)} />
-        ) : (
-          <div className="flex-shrink-0 w-32 h-24 md:w-[200px] md:h-[130px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
-            {article.imageUrl ? (
-              <Image src={article.imageUrl} alt={`${article.sourceName} - ${article.title}`} fill className="object-cover" sizes="(max-width: 768px) 128px, 200px" unoptimized />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center"><span className="text-gray-400 text-xs">无图片</span></div>
-            )}
-          </div>
-        )}
+      {/* 卡片头部：仅折叠时显示 */}
+      {!expanded && (
+        <div className="flex gap-4 p-4 md:py-5 md:px-0">
 
-        {/* 内容区 */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1.5">
-            <span className="max-w-[120px] truncate"><SourceLabel article={article} /></span>
-            {article.category && (
-              <>
-                <span className="text-text-muted">·</span>
-                <span className="text-text-muted">{article.category}</span>
-              </>
-            )}
-            <span className="text-text-muted">·</span>
-            <span className="text-text-muted flex-shrink-0">{timeAgo(article.publishedAt)}</span>
-          </div>
-
-          <h2 className="text-text-primary dark:text-white text-[15px] font-semibold leading-snug line-clamp-2 mb-2">
-            {article.titleZh || article.title}
-          </h2>
-
-          {hasSummary && (
-            <button
-              onClick={toggle}
-              className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity self-start"
-              aria-expanded={expanded}
-            >
-              详情
-              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
+          {/* 缩略图 / 视频 */}
+          {videoId ? (
+            <VideoBlock videoId={videoId} articleId={article.id} imageUrl={article.imageUrl} sourceName={article.sourceName} title={article.title} sizeCls="w-32 h-24 md:w-[200px] md:h-[130px]" onExpand={expand} />
+          ) : (
+            <div className="flex-shrink-0 w-32 h-24 md:w-[200px] md:h-[130px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 relative">
+              {article.imageUrl ? (
+                <Image src={article.imageUrl} alt={`${article.sourceName} - ${article.title}`} fill className="object-cover" sizes="(max-width: 768px) 128px, 200px" unoptimized />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center"><span className="text-gray-400 text-xs">无图片</span></div>
+              )}
+            </div>
           )}
-        </div>
-      </div>
 
-      {expanded && <ExpandedPanel article={article} onCollapse={() => setExpanded(false)} />}
+          {/* 内容区 */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between">
+            <div className="flex items-center gap-1 text-xs text-text-muted flex-wrap mb-1.5">
+              <span className="max-w-[120px] truncate"><SourceLabel article={article} /></span>
+              {article.category && (
+                <>
+                  <span className="text-text-muted">·</span>
+                  <span className="text-text-muted">{article.category}</span>
+                </>
+              )}
+              <span className="text-text-muted">·</span>
+              <span className="text-text-muted flex-shrink-0">{timeAgo(article.publishedAt)}</span>
+            </div>
+
+            <h2 className="text-text-primary dark:text-white text-[15px] font-semibold leading-snug line-clamp-2 mb-2">
+              {article.titleZh || article.title}
+            </h2>
+
+            {hasSummary && (
+              <button
+                onClick={toggle}
+                className="flex items-center gap-0.5 text-[#0d9488] dark:text-[#2dd4bf] text-xs font-medium hover:opacity-75 transition-opacity self-start"
+                aria-expanded={expanded}
+              >
+                详情
+                <ChevronDown size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {expanded && <ExpandedPanel article={article} onCollapse={collapse} />}
     </article>
   );
 }
