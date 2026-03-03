@@ -12,5 +12,5 @@ jobs:
       - name: Call API
         run: |
           curl -s -o /dev/null -w "%{http_code}" \
-            -X GET "${{ secrets.PROD_URL }}/api/cron/process-articles" \
-            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}"
+            -X POST "${{ secrets.PROD_URL }}/api/cron/process-articles" \
+            -H "x-cron-key: ${{ secrets.CRON_API_KEY }}"

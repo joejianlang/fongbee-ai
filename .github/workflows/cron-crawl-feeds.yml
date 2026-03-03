@@ -13,4 +13,4 @@ jobs:
         run: |
           curl -s -o /dev/null -w "%{http_code}" \
             -X GET "${{ secrets.PROD_URL }}/api/cron/crawl-feeds" \
-            -H "Authorization: Bearer ${{ secrets.CRON_API_KEY }}"
+            -H "x-cron-key: ${{ secrets.CRON_API_KEY }}"
