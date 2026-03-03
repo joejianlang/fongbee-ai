@@ -133,7 +133,31 @@ function ExpandedPanel({
   showMedia?: boolean;
 }) {
   const [tab, setTab] = useState<'summary' | 'insight'>('summary');
+  const panelRef = useRef<HTMLDivElement>(null);
   const videoId = showMedia && article.sourceType === 'YOUTUBE' ? extractVideoId(article.sourceUrl) : null;
+
+  // 展开时自动滚动视频/图片到屏幕顶部
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    // 读取动态 header 高度
+    const headerH = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--header-h') || '56',
+      10
+    );
+    // 读取 CategoryTabBar 实际高度
+    const catBar = document.querySelector('nav[aria-label]');
+    const catBarH = catBar ? catBar.getBoundingClientRect().height : 44;
+    const offset = headerH + catBarH;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.top > offset + 10) {
+      window.scrollTo({
+        top: window.scrollY + rect.top - offset,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
 
   const share = () => {
     if (navigator.share) {
@@ -144,7 +168,7 @@ function ExpandedPanel({
   };
 
   return (
-    <div className="border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
+    <div ref={panelRef} className="border-t border-border-primary" onClick={(e) => e.stopPropagation()}>
       {/* 视频 / 图片 — sticky at top when expanded */}
       {showMedia && (
         videoId ? (
