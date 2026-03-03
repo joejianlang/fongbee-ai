@@ -2,15 +2,21 @@ name: Cron - Crawl Feeds
 
 on:
   schedule:
-    - cron: '0 * * * *'      # 每小时
-  workflow_dispatch:
+    - cron: '0 * * * *'   # 每小时整点运行
+  workflow_dispatch:        # 支持手动触发
 
 jobs:
-  run:
+  crawl:
     runs-on: ubuntu-latest
     steps:
-      - name: Call API
+      - name: Trigger crawl-feeds API
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
-            -X GET "${{ secrets.PROD_URL }}/api/cron/crawl-feeds" \
-            -H "x-cron-key: ${{ secrets.CRON_API_KEY }}"
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.PROD_URL }}/api/cron/crawl-feeds" \
+            -H "x-cron-key: ${{ secrets.CRON_API_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP Status: $response"
+          if [ "$response" -ne 200 ]; then
+            echo "Error: API returned $response"
+            exit 1
+          fi

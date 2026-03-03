@@ -2,15 +2,21 @@ name: Cron - Process Articles
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # 每 15 分钟
-  workflow_dispatch:
+    - cron: '15 * * * *'  # 每小时 :15 运行（错开 crawl）
+  workflow_dispatch:        # 支持手动触发
 
 jobs:
-  run:
+  process:
     runs-on: ubuntu-latest
     steps:
-      - name: Call API
+      - name: Trigger process-articles API
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "${{ secrets.PROD_URL }}/api/cron/process-articles" \
-            -H "x-cron-key: ${{ secrets.CRON_API_KEY }}"
+            -H "x-cron-key: ${{ secrets.CRON_API_KEY }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP Status: $response"
+          if [ "$response" -ne 200 ]; then
+            echo "Error: API returned $response"
+            exit 1
+          fi
