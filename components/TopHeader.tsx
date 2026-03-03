@@ -13,6 +13,28 @@ import {
 
 const CITY_OPTIONS = ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Guelph'];
 
+// 各城市中心坐标（用于 GPS 自动定位匹配最近城市）
+const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
+  Toronto:   { lat: 43.6532, lng: -79.3832 },
+  Vancouver: { lat: 49.2827, lng: -123.1207 },
+  Montreal:  { lat: 45.5017, lng: -73.5673 },
+  Calgary:   { lat: 51.0447, lng: -114.0719 },
+  Ottawa:    { lat: 45.4215, lng: -75.6972 },
+  Guelph:    { lat: 43.5448, lng: -80.2482 },
+};
+
+function findNearestCity(lat: number, lng: number): string {
+  let nearest = 'Guelph';
+  let minDist = Infinity;
+  for (const [city, coord] of Object.entries(CITY_COORDS)) {
+    const dlat = lat - coord.lat;
+    const dlng = lng - coord.lng;
+    const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+    if (dist < minDist) { minDist = dist; nearest = city; }
+  }
+  return nearest;
+}
+
 interface TopHeaderProps {
   enableEnglish?: boolean;
 }
@@ -33,6 +55,7 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
   const [search,  setSearch]  = useState('');
   const [city,    setCity]    = useState('Guelph');
   const [cityOpen, setCityOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
   const cityRef = useRef<HTMLDivElement>(null);
 
   const NAV_LINKS = [
@@ -94,6 +117,20 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
     window.dispatchEvent(new CustomEvent('cityChange', { detail: c }));
   };
 
+  const autoDetectCity = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const nearest = findNearestCity(pos.coords.latitude, pos.coords.longitude);
+        selectCity(nearest);
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { timeout: 8000, maximumAge: 60000 }
+    );
+  };
+
   const switchLocale = (loc: string) => {
     document.cookie = `locale=${loc};path=/;max-age=31536000`;
     window.location.reload();
@@ -131,7 +168,16 @@ export default function TopHeader({ enableEnglish = true }: TopHeaderProps) {
             <ChevronDown size={12} className={`transition-transform ${cityOpen ? 'rotate-180' : ''}`} />
           </button>
           {cityOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#2d2d30] rounded-lg shadow-lg py-1 z-50 min-w-[130px]">
+            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#2d2d30] rounded-lg shadow-lg py-1 z-50 min-w-[140px]">
+              {/* 自动定位按钮 */}
+              <button
+                onClick={autoDetectCity}
+                disabled={locating}
+                className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-[#0d9488] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-600 font-medium"
+              >
+                <MapPin size={13} className={locating ? 'animate-pulse' : ''} />
+                {locating ? '定位中...' : '自动定位'}
+              </button>
               {CITY_OPTIONS.map((c) => (
                 <button
                   key={c}
