@@ -73,6 +73,7 @@ export default function FeedPage() {
 
   const handleCategoryChange = (cat: string) => {
     if (cat === activeCategory) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setActiveCategory(cat);
   };
 
