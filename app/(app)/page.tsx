@@ -6,11 +6,13 @@ import { useTranslations } from 'next-intl';
 import CategoryTabBar from '@/components/CategoryTabBar';
 import { ArticleCard } from '@/components/ArticleCard';
 import { FloatingPlayer } from '@/components/FloatingPlayer';
+import { usePlayer } from '@/context/PlayerContext';
 import { MOCK_ARTICLES, filterMockArticles } from '@/lib/mockData';
 import type { MockArticle } from '@/lib/mockData';
 
 export default function FeedPage() {
   const t = useTranslations('feed');
+  const { activeArticle, closePlayer } = usePlayer();
   const [activeCategory, setActiveCategory] = useState('全部');
   const [articles, setArticles]             = useState<MockArticle[]>([]);
   const [loading, setLoading]               = useState(true);
@@ -73,6 +75,7 @@ export default function FeedPage() {
 
   const handleCategoryChange = (cat: string) => {
     if (cat === activeCategory) return;
+    closePlayer();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setActiveCategory(cat);
   };
@@ -98,9 +101,11 @@ export default function FeedPage() {
           </div>
         ) : (
           <div className="md:divide-y md:divide-border-primary">
-            {articles.map((article) => (
-              <ArticleCard key={article.id} article={article} layout={activeCategory !== '全部' ? 'full' : 'compact'} />
-            ))}
+            {articles
+              .filter((a) => a.id !== activeArticle?.id)
+              .map((article) => (
+                <ArticleCard key={article.id} article={article} layout={activeCategory !== '全部' ? 'full' : 'compact'} />
+              ))}
           </div>
         )}
 
